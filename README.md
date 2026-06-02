@@ -1,8 +1,8 @@
-# MetaMask Test Dapp
+# Syscoin Test Dapp
 
-This is a simple test dapp for use in MetaMask e2e tests and manual QA.
+This is a Syscoin-maintained fork of the MetaMask test dapp for manual QA and wallet integration testing.
 
-Currently hosted [here](https://metamask.github.io/test-dapp/).
+Currently hosted [here](https://syscoin-test-dapp.vercel.app/).
 
 ## Usage
 
@@ -17,6 +17,17 @@ The main page of the test dapp includes a simple UI featuring buttons for common
 There is a second page (`request.html`) that allows making requests directly to the provider using query parameters. This provides a simple way of testing RPC methods using an in-page provider.
 
 It can be used by navigating to `/request.html?method=${METHOD}&params=${PARAMS}` (e.g. `/request.html?method=eth_getLogs&params=[{ "address": "0x0000000000000000000000000000000000000000" }]`). The page will make a request with the given RPC method and parameters using `ethereum.request`, and report the result as plain text.
+
+## Pali Passkey Testing
+
+The Syscoin fork adds a **Pali Passkeys** card to the main page. Use it with the Pali extension to test:
+
+- `wallet_createPasskeyAccount` dapp login/create/recovery.
+- Sponsor mode, sponsor service URL, sponsor signer, and policy text inputs.
+- Passkey smart-account batch execution through `wallet_sendCalls`.
+- Atomic ERC20 `approve` + spender `transferFrom` test flows.
+
+Existing transaction cards can also be used after the passkey smart account is connected as the active account. The dedicated Pali batch button is included for smart-account-specific batch request testing.
 
 ## Contributing
 
@@ -36,7 +47,13 @@ This package has no tests.
 
 ### Deploying
 
-After merging or pushing to `main`, please run `yarn deploy` in the package root directory if the contents of the `dist/` directory have changed.
+The Syscoin fork is deployed by Vercel. Merges to `main` publish to the hosted test dapp, and pull requests receive preview deployments.
+
+Vercel project settings:
+
+- Install command: `yarn install --frozen-lockfile`
+- Build command: `yarn build`
+- Output directory: `dist`
 
 ### Development
 

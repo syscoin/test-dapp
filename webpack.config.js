@@ -19,6 +19,9 @@ module.exports = {
   },
   devtool: 'eval-source-map',
   mode: 'development',
+  optimization: {
+    concatenateModules: false,
+  },
   entry: {
     main: './src/index.js',
     request: './src/request.js',

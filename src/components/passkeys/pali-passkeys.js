@@ -1,0 +1,459 @@
+import { ethers } from 'ethers';
+
+import globalContext from '../..';
+import Constants from '../../constants.json';
+
+const DEFAULT_SPONSOR_MODE = 'required';
+const DEFAULT_SPONSOR_POLICY =
+  'Sponsor co-authorization is required for this passkey smart account.';
+const ERC20_INTERFACE = new ethers.utils.Interface([
+  'function approve(address spender,uint256 amount)',
+]);
+const TOKEN_SPENDER_INTERFACE = new ethers.utils.Interface(
+  Constants.tokenSpenderAbi,
+);
+
+function getActiveProvider() {
+  if (globalContext.provider) {
+    return globalContext.provider;
+  }
+  return window.ethereum;
+}
+
+function getCurrentChainId() {
+  if (globalContext.chainIdInt) {
+    return `0x${globalContext.chainIdInt.toString(16)}`;
+  }
+  return '0x1';
+}
+
+function formatResult(value) {
+  return JSON.stringify(value, null, 2);
+}
+
+function parseCalls(value) {
+  const parsed = JSON.parse(value);
+  if (!Array.isArray(parsed)) {
+    throw new Error('Calls JSON must be an array.');
+  }
+  return parsed;
+}
+
+function getDefaultCalls(from) {
+  const target = from || '0x0000000000000000000000000000000000000000';
+  return [
+    {
+      to: target,
+      value: '0x0',
+      data: '0x',
+    },
+    {
+      to: target,
+      value: '0x0',
+      data: '0x',
+    },
+  ];
+}
+
+let lastPasskeyAccountAddress = '';
+
+export function paliPasskeysComponent(parentContainer) {
+  parentContainer.insertAdjacentHTML(
+    'beforeend',
+    `<div class="col-xl-4 col-lg-6 col-md-12 col-sm-12 col-12 d-flex align-items-stretch">
+      <div class="card full-width">
+        <div class="card-body">
+          <h4 class="card-title">
+            Pali Passkeys
+          </h4>
+
+          <p class="info-text alert alert-secondary">
+            Use this section with Pali to test dapp-driven passkey smart account create/recovery.
+          </p>
+
+          <div class="form-group">
+            <label>Passkey Account Label</label>
+            <input
+              class="form-control"
+              id="paliPasskeyLabel"
+              value="Institution Test Passkey"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Sponsor Mode</label>
+            <select class="form-control" id="paliPasskeySponsorMode">
+              <option value="disabled">disabled</option>
+              <option value="gasOnly">gasOnly</option>
+              <option value="required" selected>required</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Sponsor Service URL</label>
+            <input
+              class="form-control"
+              id="paliPasskeySponsorUrl"
+              placeholder="https://institution.example/sponsor/user-123"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Sponsor Signer Address</label>
+            <input
+              class="form-control"
+              id="paliPasskeySponsorSigner"
+              placeholder="0x..."
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Policy Text</label>
+            <input
+              class="form-control"
+              id="paliPasskeyPolicyText"
+              value="${DEFAULT_SPONSOR_POLICY}"
+            />
+          </div>
+
+          <button
+            class="btn btn-primary btn-lg btn-block mb-3"
+            id="paliCreatePasskeyAccount"
+            disabled
+          >
+            Login / Create or Recover Passkey Account
+          </button>
+
+          <p class="info-text alert alert-success">
+            Passkey account: <span id="paliPasskeyAccountAddress"></span>
+          </p>
+
+          <hr />
+
+          <h5>ERC20 Allowance Batch Builder</h5>
+
+          <p class="info-text alert alert-secondary">
+            Deploy a test spender for the ERC20, then build an atomic approve + transferFrom batch.
+          </p>
+
+          <button
+            class="btn btn-secondary btn-lg btn-block mb-3"
+            id="paliDeployTokenSpender"
+            disabled
+          >
+            Deploy Test Token Spender For ERC20
+          </button>
+
+          <p class="info-text alert alert-success">
+            Token spender: <span id="paliTokenSpenderAddress"></span>
+          </p>
+
+          <div class="form-group">
+            <label>ERC20 Contract</label>
+            <input
+              class="form-control"
+              id="paliPasskeyErc20Token"
+              placeholder="0x..."
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Token Spender Contract</label>
+            <input
+              class="form-control"
+              id="paliPasskeyErc20Spender"
+              placeholder="0x..."
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Transfer Recipient</label>
+            <input
+              class="form-control"
+              id="paliPasskeySpendRecipient"
+              placeholder="0x..."
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Token Amount To Approve And Spend</label>
+            <input
+              class="form-control"
+              id="paliPasskeyErc20Amount"
+              value="1"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Token Decimals</label>
+            <input
+              class="form-control"
+              id="paliPasskeyErc20Decimals"
+              value="18"
+            />
+          </div>
+
+          <button
+            class="btn btn-secondary btn-lg btn-block mb-3"
+            id="paliBuildErc20AllowanceBatch"
+            disabled
+          >
+            Build ERC20 Approve + TransferFrom Batch JSON
+          </button>
+
+          <div class="form-group">
+            <label>Batch Calls JSON</label>
+            <textarea
+              class="form-control"
+              id="paliPasskeyBatchCalls"
+              rows="8"
+            ></textarea>
+          </div>
+
+          <button
+            class="btn btn-primary btn-lg btn-block mb-3"
+            id="paliPasskeyBatchSend"
+            disabled
+          >
+            Send Passkey Batch with wallet_sendCalls
+          </button>
+
+          <p class="info-text alert alert-secondary">
+            Result: <span class="wrap" id="paliPasskeyResult"></span>
+          </p>
+        </div>
+      </div>
+    </div>`,
+  );
+
+  const createButton = document.getElementById('paliCreatePasskeyAccount');
+  const deployTokenSpenderButton = document.getElementById(
+    'paliDeployTokenSpender',
+  );
+  const buildErc20BatchButton = document.getElementById(
+    'paliBuildErc20AllowanceBatch',
+  );
+  const batchButton = document.getElementById('paliPasskeyBatchSend');
+  const labelInput = document.getElementById('paliPasskeyLabel');
+  const sponsorModeInput = document.getElementById('paliPasskeySponsorMode');
+  const sponsorUrlInput = document.getElementById('paliPasskeySponsorUrl');
+  const sponsorSignerInput = document.getElementById(
+    'paliPasskeySponsorSigner',
+  );
+  const policyTextInput = document.getElementById('paliPasskeyPolicyText');
+  const passkeyAddressOutput = document.getElementById(
+    'paliPasskeyAccountAddress',
+  );
+  const tokenSpenderAddressOutput = document.getElementById(
+    'paliTokenSpenderAddress',
+  );
+  const callsInput = document.getElementById('paliPasskeyBatchCalls');
+  const erc20TokenInput = document.getElementById('paliPasskeyErc20Token');
+  const erc20SpenderInput = document.getElementById('paliPasskeyErc20Spender');
+  const spendRecipientInput = document.getElementById(
+    'paliPasskeySpendRecipient',
+  );
+  const erc20DecimalsInput = document.getElementById(
+    'paliPasskeyErc20Decimals',
+  );
+  const erc20AmountInput = document.getElementById('paliPasskeyErc20Amount');
+  const resultOutput = document.getElementById('paliPasskeyResult');
+
+  function getPasskeyAccountAddress() {
+    return (
+      passkeyAddressOutput.innerText ||
+      lastPasskeyAccountAddress ||
+      (globalContext.accounts && globalContext.accounts[0]) ||
+      ''
+    );
+  }
+
+  function syncConnectedAccountFallback() {
+    if (!passkeyAddressOutput.innerText && !lastPasskeyAccountAddress) {
+      lastPasskeyAccountAddress =
+        (globalContext.accounts && globalContext.accounts[0]) || '';
+      passkeyAddressOutput.innerText = lastPasskeyAccountAddress;
+    }
+  }
+
+  callsInput.value = formatResult(getDefaultCalls(''));
+
+  document.addEventListener('globalConnectionChange', function (event) {
+    createButton.disabled = !event.detail.connected;
+    deployTokenSpenderButton.disabled = !event.detail.connected;
+    buildErc20BatchButton.disabled = !event.detail.connected;
+    batchButton.disabled = !event.detail.connected;
+    if (event.detail.connected) {
+      syncConnectedAccountFallback();
+    }
+  });
+
+  document.addEventListener('disableAndClear', function () {
+    createButton.disabled = true;
+    deployTokenSpenderButton.disabled = true;
+    buildErc20BatchButton.disabled = true;
+    batchButton.disabled = true;
+    lastPasskeyAccountAddress = '';
+    passkeyAddressOutput.innerText = '';
+    tokenSpenderAddressOutput.innerText = '';
+    resultOutput.innerText = '';
+    callsInput.value = formatResult(getDefaultCalls(''));
+  });
+
+  createButton.onclick = async () => {
+    try {
+      const provider = getActiveProvider();
+      const sponsor = getSponsor();
+      const result = await provider.request({
+        method: 'wallet_createPasskeyAccount',
+        params: [
+          {
+            label: labelInput.value || 'Institution Test Passkey',
+            sponsor,
+          },
+        ],
+      });
+
+      const address = (result && result.address) || '';
+      lastPasskeyAccountAddress = address;
+      passkeyAddressOutput.innerText = address;
+      resultOutput.innerText = formatResult(result);
+      callsInput.value = formatResult(getDefaultCalls(address));
+
+      const accounts = await provider.request({ method: 'eth_accounts' });
+      globalContext.accounts = accounts || globalContext.accounts;
+    } catch (error) {
+      console.error(error);
+      resultOutput.innerText = `Error: ${error.message}`;
+    }
+  };
+
+  deployTokenSpenderButton.onclick = async () => {
+    try {
+      const provider = getActiveProvider();
+      const token = erc20TokenInput.value.trim();
+      if (!ethers.utils.isAddress(token)) {
+        throw new Error('Enter a valid ERC20 contract address first.');
+      }
+      const ethersProvider = new ethers.providers.Web3Provider(provider);
+      const signer = ethersProvider.getSigner();
+      const factory = new ethers.ContractFactory(
+        Constants.tokenSpenderAbi,
+        Constants.tokenSpenderBytecode,
+        signer,
+      );
+      const contract = await factory.deploy(token);
+      await contract.deployTransaction.wait();
+      tokenSpenderAddressOutput.innerText = contract.address;
+      erc20SpenderInput.value = contract.address;
+      resultOutput.innerText = `Token spender deployed: ${contract.address}`;
+    } catch (error) {
+      console.error(error);
+      resultOutput.innerText = `Error: ${error.message}`;
+    }
+  };
+
+  buildErc20BatchButton.onclick = () => {
+    try {
+      const token = erc20TokenInput.value.trim();
+      const spender =
+        erc20SpenderInput.value.trim() || tokenSpenderAddressOutput.innerText;
+      const recipient = spendRecipientInput.value.trim();
+      const decimals = Number(erc20DecimalsInput.value || '18');
+      const amount = erc20AmountInput.value || '0';
+
+      if (!ethers.utils.isAddress(token)) {
+        throw new Error('Enter a valid ERC20 contract address.');
+      }
+      if (!ethers.utils.isAddress(spender)) {
+        throw new Error('Deploy or enter a valid token spender address.');
+      }
+      if (!ethers.utils.isAddress(recipient)) {
+        throw new Error('Enter a valid transfer recipient address.');
+      }
+      if (!Number.isInteger(decimals) || decimals < 0 || decimals > 255) {
+        throw new Error('Enter valid token decimals.');
+      }
+
+      const tokenAmount = ethers.utils.parseUnits(amount, decimals);
+      const passkeyAddress = getPasskeyAccountAddress();
+      if (!ethers.utils.isAddress(passkeyAddress)) {
+        throw new Error('Create, recover, or connect a passkey account first.');
+      }
+      callsInput.value = formatResult([
+        {
+          to: token,
+          value: '0x0',
+          data: ERC20_INTERFACE.encodeFunctionData('approve', [
+            spender,
+            tokenAmount,
+          ]),
+        },
+        {
+          to: spender,
+          value: '0x0',
+          data: TOKEN_SPENDER_INTERFACE.encodeFunctionData('transferFrom', [
+            passkeyAddress,
+            recipient,
+            tokenAmount,
+          ]),
+        },
+      ]);
+      resultOutput.innerText =
+        'Built ERC20 approve + test spender transferFrom batch JSON.';
+    } catch (error) {
+      console.error(error);
+      resultOutput.innerText = `Error: ${error.message}`;
+    }
+  };
+
+  batchButton.onclick = async () => {
+    try {
+      const provider = getActiveProvider();
+      const from = getPasskeyAccountAddress();
+      if (!from) {
+        throw new Error('Create, recover, or connect a passkey account first.');
+      }
+
+      const result = await provider.request({
+        method: 'wallet_sendCalls',
+        params: [
+          {
+            version: '2.0.0',
+            from,
+            chainId: getCurrentChainId(),
+            atomicRequired: true,
+            calls: parseCalls(callsInput.value),
+          },
+        ],
+      });
+
+      resultOutput.innerText = formatResult(result);
+    } catch (error) {
+      console.error(error);
+      resultOutput.innerText = `Error: ${error.message}`;
+    }
+  };
+
+  function getSponsor() {
+    const mode = sponsorModeInput.value || DEFAULT_SPONSOR_MODE;
+    const sponsor = {
+      mode,
+    };
+    const url = sponsorUrlInput.value.trim();
+    const signer = sponsorSignerInput.value.trim();
+    const policyText = policyTextInput.value.trim();
+
+    if (url) {
+      sponsor.url = url;
+    }
+    if (signer) {
+      sponsor.signer = signer;
+    }
+    if (policyText) {
+      sponsor.policyText = policyText;
+    }
+
+    return sponsor;
+  }
+}
