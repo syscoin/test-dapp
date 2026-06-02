@@ -54,6 +54,7 @@ import {
   updateActiveNetworkInModal,
 } from './components/connections/networks-helpers';
 import { tempoTransactionsComponent } from './components/tempo-transactions/tempo-transactions';
+import { paliPasskeysComponent } from './components/passkeys';
 
 const {
   hstBytecode,
@@ -170,6 +171,7 @@ connectionsSection.appendChild(connectionsRow);
 connectionsComponent(connectionsRow);
 permissionsComponent(connectionsRow);
 networksComponent(connectionsRow);
+paliPasskeysComponent(connectionsRow);
 
 // Connection buttons set up by this file
 const onboardButton = document.getElementById('connectButton');

@@ -18,6 +18,16 @@ There is a second page (`request.html`) that allows making requests directly to 
 
 It can be used by navigating to `/request.html?method=${METHOD}&params=${PARAMS}` (e.g. `/request.html?method=eth_getLogs&params=[{ "address": "0x0000000000000000000000000000000000000000" }]`). The page will make a request with the given RPC method and parameters using `ethereum.request`, and report the result as plain text.
 
+## Pali Passkey Testing
+
+The Syscoin fork adds a **Pali Passkeys** card to the main page. Use it with the Pali extension on `localhost` to test:
+
+- `wallet_createPasskeyAccount` dapp login/create/recovery.
+- Sponsor mode, sponsor service URL, sponsor signer, and policy text inputs.
+- Passkey smart-account batch execution through `wallet_sendCalls`.
+
+Existing transaction cards can also be used after the passkey smart account is connected as the active account. The dedicated Pali batch button is included for smart-account-specific batch request testing.
+
 ## Contributing
 
 ### Setup
