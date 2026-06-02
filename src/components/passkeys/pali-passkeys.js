@@ -3,7 +3,7 @@ import { ethers } from 'ethers';
 import globalContext from '../..';
 import Constants from '../../constants.json';
 
-const DEFAULT_SPONSOR_MODE = 'required';
+const DEFAULT_SPONSOR_MODE = 'disabled';
 const DEFAULT_SPONSOR_POLICY =
   'Sponsor co-authorization is required for this passkey smart account.';
 const ERC20_INTERFACE = new ethers.utils.Interface([
@@ -83,9 +83,9 @@ export function paliPasskeysComponent(parentContainer) {
           <div class="form-group">
             <label>Sponsor Mode</label>
             <select class="form-control" id="paliPasskeySponsorMode">
-              <option value="disabled">disabled</option>
+              <option value="disabled" selected>disabled</option>
               <option value="gasOnly">gasOnly</option>
-              <option value="required" selected>required</option>
+              <option value="required">required</option>
             </select>
           </div>
 
@@ -259,6 +259,13 @@ export function paliPasskeysComponent(parentContainer) {
   const erc20AmountInput = document.getElementById('paliPasskeyErc20Amount');
   const resultOutput = document.getElementById('paliPasskeyResult');
 
+  function syncSponsorFields() {
+    const sponsorDisabled = sponsorModeInput.value === 'disabled';
+    sponsorUrlInput.disabled = sponsorDisabled;
+    sponsorSignerInput.disabled = sponsorDisabled;
+    policyTextInput.disabled = sponsorDisabled;
+  }
+
   function getPasskeyAccountAddress() {
     return (
       passkeyAddressOutput.innerText ||
@@ -277,6 +284,9 @@ export function paliPasskeysComponent(parentContainer) {
   }
 
   callsInput.value = formatResult(getDefaultCalls(''));
+  syncSponsorFields();
+
+  sponsorModeInput.onchange = syncSponsorFields;
 
   document.addEventListener('globalConnectionChange', function (event) {
     createButton.disabled = !event.detail.connected;
@@ -440,6 +450,11 @@ export function paliPasskeysComponent(parentContainer) {
     const sponsor = {
       mode,
     };
+
+    if (mode === 'disabled') {
+      return sponsor;
+    }
+
     const url = sponsorUrlInput.value.trim();
     const signer = sponsorSignerInput.value.trim();
     const policyText = policyTextInput.value.trim();

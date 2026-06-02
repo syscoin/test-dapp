@@ -247,6 +247,22 @@ ensResolutionComponent(resolutionsSection);
 const providerDetails = [];
 let scrollToHandled = false;
 
+const isPaliProviderInfo = (info = {}) => {
+  const name = String(info.name || '').toLowerCase();
+  const rdns = String(info.rdns || '').toLowerCase();
+  return (
+    name.includes('pali') ||
+    name.includes('syscoin') ||
+    rdns.includes('pali') ||
+    rdns.includes('syscoin')
+  );
+};
+
+const getPreferredProviderDetail = () =>
+  providerDetails.find((providerDetail) =>
+    isPaliProviderInfo(providerDetail.info),
+  ) || providerDetails[0];
+
 const isMetaMaskConnected = () =>
   globalContext.accounts && globalContext.accounts.length > 0;
 let isWalletConnectConnected = false;
@@ -254,7 +270,8 @@ let isSdkConnected = false;
 
 // TODO: Need to align with @metamask/onboarding
 const isMetaMaskInstalled = () =>
-  globalContext.provider && globalContext.provider.isMetaMask;
+  globalContext.provider &&
+  typeof globalContext.provider.request === 'function';
 
 walletConnectBtn.onclick = () => {
   walletConnect.open();
@@ -322,10 +339,10 @@ export const setActiveProviderDetail = async (providerDetail) => {
   updateFormElements();
 };
 
-const setActiveProviderDetailWindowEthereum = async () => {
-  const providerDetail = {
+const setActiveProviderDetailDefault = async () => {
+  const providerDetail = getPreferredProviderDetail() || {
     info: {
-      uuid: '',
+      uuid: 'window.ethereum',
       name: 'window.ethereum',
       icon: '',
     },
@@ -367,6 +384,9 @@ export const handleNewProviderDetail = (newProviderDetail) => {
   }
   providerDetails.push(newProviderDetail);
   renderProviderDetails();
+  if (isPaliProviderInfo(newProviderDetail.info)) {
+    setActiveProviderDetail(newProviderDetail);
+  }
 };
 
 export const removeProviderDetail = (name) => {
@@ -744,14 +764,14 @@ const updateContractElements = () => {
  */
 
 const initialize = async () => {
-  await setActiveProviderDetailWindowEthereum();
+  await setActiveProviderDetailDefault();
   detectEip6963();
   // We only want to set the activeProviderDetail is there is one instead of
   // assuming it exists
   if (providerDetails.length > 0) {
-    await setActiveProviderDetail(providerDetails[0]);
+    await setActiveProviderDetail(getPreferredProviderDetail());
   }
-  useWindowProviderButton.onclick = setActiveProviderDetailWindowEthereum;
+  useWindowProviderButton.onclick = setActiveProviderDetailDefault;
 };
 
 window.addEventListener('load', initialize);

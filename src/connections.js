@@ -10,9 +10,9 @@ import globalContext, {
 } from '.';
 
 const dappMetadata = {
-  name: 'E2e Test Dapp',
-  description: 'This is the E2e Test Dapp',
-  url: 'https://metamask.github.io/test-dapp/',
+  name: 'Syscoin Test Dapp',
+  description: 'This is the Syscoin Test Dapp',
+  url: 'https://syscoin-test-dapp.vercel.app/',
 };
 
 const sdk = new MetaMaskSDK({ dappMetadata });
