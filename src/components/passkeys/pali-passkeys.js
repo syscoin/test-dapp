@@ -259,6 +259,23 @@ export function paliPasskeysComponent(parentContainer) {
   const erc20AmountInput = document.getElementById('paliPasskeyErc20Amount');
   const resultOutput = document.getElementById('paliPasskeyResult');
 
+  function getPasskeyAccountAddress() {
+    return (
+      passkeyAddressOutput.innerText ||
+      lastPasskeyAccountAddress ||
+      (globalContext.accounts && globalContext.accounts[0]) ||
+      ''
+    );
+  }
+
+  function syncConnectedAccountFallback() {
+    if (!passkeyAddressOutput.innerText && !lastPasskeyAccountAddress) {
+      lastPasskeyAccountAddress =
+        (globalContext.accounts && globalContext.accounts[0]) || '';
+      passkeyAddressOutput.innerText = lastPasskeyAccountAddress;
+    }
+  }
+
   callsInput.value = formatResult(getDefaultCalls(''));
 
   document.addEventListener('globalConnectionChange', function (event) {
@@ -266,6 +283,9 @@ export function paliPasskeysComponent(parentContainer) {
     deployTokenSpenderButton.disabled = !event.detail.connected;
     buildErc20BatchButton.disabled = !event.detail.connected;
     batchButton.disabled = !event.detail.connected;
+    if (event.detail.connected) {
+      syncConnectedAccountFallback();
+    }
   });
 
   document.addEventListener('disableAndClear', function () {
@@ -356,10 +376,9 @@ export function paliPasskeysComponent(parentContainer) {
       }
 
       const tokenAmount = ethers.utils.parseUnits(amount, decimals);
-      const passkeyAddress =
-        passkeyAddressOutput.innerText || lastPasskeyAccountAddress;
+      const passkeyAddress = getPasskeyAccountAddress();
       if (!ethers.utils.isAddress(passkeyAddress)) {
-        throw new Error('Create or recover a passkey account first.');
+        throw new Error('Create, recover, or connect a passkey account first.');
       }
       callsInput.value = formatResult([
         {
@@ -391,9 +410,9 @@ export function paliPasskeysComponent(parentContainer) {
   batchButton.onclick = async () => {
     try {
       const provider = getActiveProvider();
-      const from = passkeyAddressOutput.innerText || lastPasskeyAccountAddress;
+      const from = getPasskeyAccountAddress();
       if (!from) {
-        throw new Error('Create or recover a passkey account first.');
+        throw new Error('Create, recover, or connect a passkey account first.');
       }
 
       const result = await provider.request({
