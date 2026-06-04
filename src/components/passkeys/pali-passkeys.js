@@ -68,7 +68,7 @@ export function paliPasskeysComponent(parentContainer) {
           </h4>
 
           <p class="info-text alert alert-secondary">
-            Use this section with Pali to test dapp-driven passkey smart account create/recovery.
+            Use this section with Pali to test dapp-driven passkey smart account creation/registration, policy setup, and batched execution.
           </p>
 
           <div class="form-group">
@@ -121,7 +121,7 @@ export function paliPasskeysComponent(parentContainer) {
             id="paliCreatePasskeyAccount"
             disabled
           >
-            Login / Create or Recover Passkey Account
+            Create / Register Passkey Account
           </button>
 
           <p class="info-text alert alert-success">
@@ -267,20 +267,11 @@ export function paliPasskeysComponent(parentContainer) {
   }
 
   function getPasskeyAccountAddress() {
-    return (
-      passkeyAddressOutput.innerText ||
-      lastPasskeyAccountAddress ||
-      (globalContext.accounts && globalContext.accounts[0]) ||
-      ''
-    );
+    return passkeyAddressOutput.innerText || lastPasskeyAccountAddress || '';
   }
 
   function syncConnectedAccountFallback() {
-    if (!passkeyAddressOutput.innerText && !lastPasskeyAccountAddress) {
-      lastPasskeyAccountAddress =
-        (globalContext.accounts && globalContext.accounts[0]) || '';
-      passkeyAddressOutput.innerText = lastPasskeyAccountAddress;
-    }
+    passkeyAddressOutput.innerText = lastPasskeyAccountAddress;
   }
 
   callsInput.value = formatResult(getDefaultCalls(''));
@@ -388,7 +379,7 @@ export function paliPasskeysComponent(parentContainer) {
       const tokenAmount = ethers.utils.parseUnits(amount, decimals);
       const passkeyAddress = getPasskeyAccountAddress();
       if (!ethers.utils.isAddress(passkeyAddress)) {
-        throw new Error('Create, recover, or connect a passkey account first.');
+        throw new Error('Create / register a passkey account first.');
       }
       callsInput.value = formatResult([
         {
@@ -422,7 +413,7 @@ export function paliPasskeysComponent(parentContainer) {
       const provider = getActiveProvider();
       const from = getPasskeyAccountAddress();
       if (!from) {
-        throw new Error('Create, recover, or connect a passkey account first.');
+        throw new Error('Create / register a passkey account first.');
       }
 
       const result = await provider.request({

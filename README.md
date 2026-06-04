@@ -22,7 +22,7 @@ It can be used by navigating to `/request.html?method=${METHOD}&params=${PARAMS}
 
 The Syscoin fork adds a **Pali Passkeys** card to the main page. Use it with the Pali extension to test:
 
-- `wallet_createPasskeyAccount` dapp login/create/recovery.
+- `wallet_createPasskeyAccount` dapp account creation/registration.
 - Sponsor mode, sponsor service URL, sponsor signer, and policy text inputs.
 - Passkey smart-account batch execution through `wallet_sendCalls`.
 - Atomic ERC20 `approve` + spender `transferFrom` test flows.
