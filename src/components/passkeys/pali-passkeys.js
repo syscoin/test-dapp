@@ -154,11 +154,30 @@ export function paliPasskeysComponent(parentContainer) {
           <h5>ERC20 Allowance Batch Builder</h5>
 
           <p class="info-text alert alert-secondary">
-            Use the ERC 20 card to create a token with a gas-paying EOA, or
-            paste an existing ERC20. Then deploy a test spender with a
-            non-passkey signer and build an atomic approve + transferFrom batch
-            from the selected passkey account.
+            Deploy a test ERC20 and spender with the remembered gas payer, then
+            send approve + transferFrom as the selected passkey account.
           </p>
+
+          <p class="info-text alert alert-success">
+            Gas payer: <span id="paliPasskeyGasPayerAddress"></span>
+          </p>
+
+          <div class="form-group">
+            <label>Token Decimals</label>
+            <input
+              class="form-control"
+              id="paliPasskeyErc20Decimals"
+              value="18"
+            />
+          </div>
+
+          <button
+            class="btn btn-secondary btn-lg btn-block mb-3"
+            id="paliDeployTestErc20"
+            disabled
+          >
+            Deploy + Fund Test ERC20 With Gas Payer
+          </button>
 
           <div class="form-group">
             <label>ERC20 Contract</label>
@@ -168,9 +187,7 @@ export function paliPasskeysComponent(parentContainer) {
               placeholder="0x..."
             />
             <small class="form-text text-muted">
-              The ERC20 must already exist. Contract deployment cannot be sent
-              directly from the passkey account unless it goes through a
-              factory call.
+              Paste an existing ERC20 or deploy a test token above.
             </small>
           </div>
 
@@ -213,15 +230,6 @@ export function paliPasskeysComponent(parentContainer) {
             />
           </div>
 
-          <div class="form-group">
-            <label>Token Decimals</label>
-            <input
-              class="form-control"
-              id="paliPasskeyErc20Decimals"
-              value="18"
-            />
-          </div>
-
           <button
             class="btn btn-secondary btn-lg btn-block mb-3"
             id="paliBuildErc20AllowanceBatch"
@@ -259,6 +267,9 @@ export function paliPasskeysComponent(parentContainer) {
   const useExistingPasskeyButton = document.getElementById(
     'paliUseExistingPasskeyAccount',
   );
+  const deployTestErc20Button = document.getElementById(
+    'paliDeployTestErc20',
+  );
   const deployTokenSpenderButton = document.getElementById(
     'paliDeployTokenSpender',
   );
@@ -279,6 +290,9 @@ export function paliPasskeysComponent(parentContainer) {
   const passkeyAddressOutput = document.getElementById(
     'paliPasskeyAccountAddress',
   );
+  const gasPayerAddressOutput = document.getElementById(
+    'paliPasskeyGasPayerAddress',
+  );
   const tokenSpenderAddressOutput = document.getElementById(
     'paliTokenSpenderAddress',
   );
@@ -293,6 +307,7 @@ export function paliPasskeysComponent(parentContainer) {
   );
   const erc20AmountInput = document.getElementById('paliPasskeyErc20Amount');
   const resultOutput = document.getElementById('paliPasskeyResult');
+  let gasPayerAddress = '';
 
   function syncSponsorFields() {
     const sponsorDisabled = sponsorModeInput.value === 'disabled';
@@ -309,24 +324,46 @@ export function paliPasskeysComponent(parentContainer) {
     return (globalContext.accounts && globalContext.accounts[0]) || '';
   }
 
-  function isSelectedPasskeyConnectedAccount() {
-    const passkeyAddress = getPasskeyAccountAddress();
-    const connectedAccount = getConnectedAccountAddress();
+  function isSameAddress(addressA, addressB) {
     return (
-      ethers.utils.isAddress(passkeyAddress) &&
-      ethers.utils.isAddress(connectedAccount) &&
-      passkeyAddress.toLowerCase() === connectedAccount.toLowerCase()
+      ethers.utils.isAddress(addressA) &&
+      ethers.utils.isAddress(addressB) &&
+      addressA.toLowerCase() === addressB.toLowerCase()
     );
   }
 
-  function syncConnectedAccountFallback() {
+  function syncGasPayerOutput() {
+    gasPayerAddressOutput.innerText = gasPayerAddress || '';
+  }
+
+  function rememberConnectedGasPayer() {
     const connectedAccount = getConnectedAccountAddress();
     if (
-      !lastPasskeyAccountAddress &&
-      ethers.utils.isAddress(connectedAccount)
+      ethers.utils.isAddress(connectedAccount) &&
+      !isSameAddress(connectedAccount, getPasskeyAccountAddress())
     ) {
-      existingPasskeyAccountInput.value = connectedAccount;
+      gasPayerAddress = connectedAccount;
+      syncGasPayerOutput();
     }
+  }
+
+  function getGasPayerAddress() {
+    rememberConnectedGasPayer();
+    if (!ethers.utils.isAddress(gasPayerAddress)) {
+      throw new Error(
+        'Connect a gas-paying non-passkey account before deploying contracts.',
+      );
+    }
+    if (isSameAddress(gasPayerAddress, getPasskeyAccountAddress())) {
+      throw new Error(
+        'Gas payer cannot be the selected passkey account. Connect an EOA first.',
+      );
+    }
+    return gasPayerAddress;
+  }
+
+  function syncConnectedAccountFallback() {
+    rememberConnectedGasPayer();
     passkeyAddressOutput.innerText = lastPasskeyAccountAddress;
   }
 
@@ -341,41 +378,54 @@ export function paliPasskeysComponent(parentContainer) {
   function syncDeployTokenSpenderButton() {
     deployTokenSpenderButton.disabled =
       !isConnected ||
-      !ethers.utils.isAddress(erc20TokenInput.value.trim()) ||
-      isSelectedPasskeyConnectedAccount();
+      !ethers.utils.isAddress(gasPayerAddress) ||
+      !ethers.utils.isAddress(erc20TokenInput.value.trim());
+  }
+
+  function syncDeployTestErc20Button() {
+    deployTestErc20Button.disabled =
+      !isConnected || !ethers.utils.isAddress(gasPayerAddress);
+  }
+
+  function syncDeployButtons() {
+    rememberConnectedGasPayer();
+    syncDeployTestErc20Button();
+    syncDeployTokenSpenderButton();
   }
 
   callsInput.value = formatResult(getDefaultCalls(''));
   syncSponsorFields();
   syncUseExistingPasskeyButton();
-  syncDeployTokenSpenderButton();
+  syncGasPayerOutput();
+  syncDeployButtons();
 
   sponsorModeInput.onchange = syncSponsorFields;
   existingPasskeyAccountInput.oninput = syncUseExistingPasskeyButton;
-  erc20TokenInput.oninput = syncDeployTokenSpenderButton;
+  erc20TokenInput.oninput = syncDeployButtons;
 
   document.addEventListener('globalConnectionChange', function (event) {
     isConnected = event.detail.connected;
     createButton.disabled = !event.detail.connected;
+    syncConnectedAccountFallback();
     syncUseExistingPasskeyButton();
-    syncDeployTokenSpenderButton();
+    syncDeployButtons();
     buildErc20BatchButton.disabled = !event.detail.connected;
     batchButton.disabled = !event.detail.connected;
-    if (event.detail.connected) {
-      syncConnectedAccountFallback();
-    }
   });
 
   document.addEventListener('disableAndClear', function () {
     isConnected = false;
     createButton.disabled = true;
     useExistingPasskeyButton.disabled = true;
+    deployTestErc20Button.disabled = true;
     deployTokenSpenderButton.disabled = true;
     buildErc20BatchButton.disabled = true;
     batchButton.disabled = true;
     lastPasskeyAccountAddress = '';
+    gasPayerAddress = '';
     existingPasskeyAccountInput.value = '';
     passkeyAddressOutput.innerText = '';
+    gasPayerAddressOutput.innerText = '';
     tokenSpenderAddressOutput.innerText = '';
     resultOutput.innerText = '';
     callsInput.value = formatResult(getDefaultCalls(''));
@@ -384,6 +434,7 @@ export function paliPasskeysComponent(parentContainer) {
   createButton.onclick = async () => {
     try {
       const provider = getActiveProvider();
+      rememberConnectedGasPayer();
       const sponsor = getSponsor();
       const result = await provider.request({
         method: 'wallet_createPasskeyAccount',
@@ -403,7 +454,7 @@ export function paliPasskeysComponent(parentContainer) {
 
       const accounts = await provider.request({ method: 'eth_accounts' });
       globalContext.accounts = accounts || globalContext.accounts;
-      syncDeployTokenSpenderButton();
+      syncDeployButtons();
     } catch (error) {
       console.error(error);
       resultOutput.innerText = `Error: ${error.message}`;
@@ -419,8 +470,49 @@ export function paliPasskeysComponent(parentContainer) {
       lastPasskeyAccountAddress = address;
       passkeyAddressOutput.innerText = address;
       callsInput.value = formatResult(getDefaultCalls(address));
-      syncDeployTokenSpenderButton();
+      syncDeployButtons();
       resultOutput.innerText = `Using existing passkey account: ${address}`;
+    } catch (error) {
+      console.error(error);
+      resultOutput.innerText = `Error: ${error.message}`;
+    }
+  };
+
+  deployTestErc20Button.onclick = async () => {
+    try {
+      const provider = getActiveProvider();
+      const gasPayer = getGasPayerAddress();
+      const decimals = Number(erc20DecimalsInput.value || '18');
+      if (!Number.isInteger(decimals) || decimals < 0 || decimals > 255) {
+        throw new Error('Enter valid token decimals.');
+      }
+
+      const ethersProvider = new ethers.providers.Web3Provider(provider);
+      const signer = ethersProvider.getSigner(gasPayer);
+      const factory = new ethers.ContractFactory(
+        Constants.hstAbi,
+        Constants.hstBytecode,
+        signer,
+      );
+      const contract = await factory.deploy(10, 'TST', decimals, 'TST');
+      await contract.deployTransaction.wait();
+
+      const passkeyAddress = getPasskeyAccountAddress();
+      if (ethers.utils.isAddress(passkeyAddress)) {
+        const amount = erc20AmountInput.value || '1';
+        const tokenAmount = ethers.utils.parseUnits(amount, decimals);
+        const transfer = await contract.transfer(passkeyAddress, tokenAmount);
+        await transfer.wait();
+      }
+
+      globalContext.hstContract = contract;
+      globalContext.deployedContractAddress = contract.address;
+      globalContext.tokenDecimals = String(decimals);
+      erc20TokenInput.value = contract.address;
+      syncDeployButtons();
+      resultOutput.innerText = ethers.utils.isAddress(passkeyAddress)
+        ? `Test ERC20 deployed and passkey funded: ${contract.address}`
+        : `Test ERC20 deployed: ${contract.address}`;
     } catch (error) {
       console.error(error);
       resultOutput.innerText = `Error: ${error.message}`;
@@ -434,13 +526,9 @@ export function paliPasskeysComponent(parentContainer) {
       if (!ethers.utils.isAddress(token)) {
         throw new Error('Enter a valid ERC20 contract address first.');
       }
-      if (isSelectedPasskeyConnectedAccount()) {
-        throw new Error(
-          'Switch Pali to a gas-paying non-passkey account before deploying contracts.',
-        );
-      }
+      const gasPayer = getGasPayerAddress();
       const ethersProvider = new ethers.providers.Web3Provider(provider);
-      const signer = ethersProvider.getSigner();
+      const signer = ethersProvider.getSigner(gasPayer);
       const factory = new ethers.ContractFactory(
         Constants.tokenSpenderAbi,
         Constants.tokenSpenderBytecode,
