@@ -124,6 +124,27 @@ export function paliPasskeysComponent(parentContainer) {
             Create / Register Passkey Account
           </button>
 
+          <div class="form-group">
+            <label>Existing Passkey Account</label>
+            <input
+              class="form-control"
+              id="paliExistingPasskeyAccount"
+              placeholder="0x..."
+            />
+            <small class="form-text text-muted">
+              Paste an already-created passkey smart account address to reuse it
+              for the batch below.
+            </small>
+          </div>
+
+          <button
+            class="btn btn-secondary btn-lg btn-block mb-3"
+            id="paliUseExistingPasskeyAccount"
+            disabled
+          >
+            Use Existing Passkey Account
+          </button>
+
           <p class="info-text alert alert-success">
             Passkey account: <span id="paliPasskeyAccountAddress"></span>
           </p>
@@ -230,6 +251,9 @@ export function paliPasskeysComponent(parentContainer) {
   );
 
   const createButton = document.getElementById('paliCreatePasskeyAccount');
+  const useExistingPasskeyButton = document.getElementById(
+    'paliUseExistingPasskeyAccount',
+  );
   const deployTokenSpenderButton = document.getElementById(
     'paliDeployTokenSpender',
   );
@@ -244,6 +268,9 @@ export function paliPasskeysComponent(parentContainer) {
     'paliPasskeySponsorSigner',
   );
   const policyTextInput = document.getElementById('paliPasskeyPolicyText');
+  const existingPasskeyAccountInput = document.getElementById(
+    'paliExistingPasskeyAccount',
+  );
   const passkeyAddressOutput = document.getElementById(
     'paliPasskeyAccountAddress',
   );
@@ -274,10 +301,24 @@ export function paliPasskeysComponent(parentContainer) {
   }
 
   function syncConnectedAccountFallback() {
+    const connectedAccount =
+      (globalContext.accounts && globalContext.accounts[0]) || '';
+    if (
+      !lastPasskeyAccountAddress &&
+      ethers.utils.isAddress(connectedAccount)
+    ) {
+      existingPasskeyAccountInput.value = connectedAccount;
+    }
     passkeyAddressOutput.innerText = lastPasskeyAccountAddress;
   }
 
   let isConnected = false;
+
+  function syncUseExistingPasskeyButton() {
+    useExistingPasskeyButton.disabled =
+      !isConnected ||
+      !ethers.utils.isAddress(existingPasskeyAccountInput.value.trim());
+  }
 
   function syncDeployTokenSpenderButton() {
     deployTokenSpenderButton.disabled =
@@ -286,14 +327,17 @@ export function paliPasskeysComponent(parentContainer) {
 
   callsInput.value = formatResult(getDefaultCalls(''));
   syncSponsorFields();
+  syncUseExistingPasskeyButton();
   syncDeployTokenSpenderButton();
 
   sponsorModeInput.onchange = syncSponsorFields;
+  existingPasskeyAccountInput.oninput = syncUseExistingPasskeyButton;
   erc20TokenInput.oninput = syncDeployTokenSpenderButton;
 
   document.addEventListener('globalConnectionChange', function (event) {
     isConnected = event.detail.connected;
     createButton.disabled = !event.detail.connected;
+    syncUseExistingPasskeyButton();
     syncDeployTokenSpenderButton();
     buildErc20BatchButton.disabled = !event.detail.connected;
     batchButton.disabled = !event.detail.connected;
@@ -305,10 +349,12 @@ export function paliPasskeysComponent(parentContainer) {
   document.addEventListener('disableAndClear', function () {
     isConnected = false;
     createButton.disabled = true;
+    useExistingPasskeyButton.disabled = true;
     deployTokenSpenderButton.disabled = true;
     buildErc20BatchButton.disabled = true;
     batchButton.disabled = true;
     lastPasskeyAccountAddress = '';
+    existingPasskeyAccountInput.value = '';
     passkeyAddressOutput.innerText = '';
     tokenSpenderAddressOutput.innerText = '';
     resultOutput.innerText = '';
@@ -337,6 +383,22 @@ export function paliPasskeysComponent(parentContainer) {
 
       const accounts = await provider.request({ method: 'eth_accounts' });
       globalContext.accounts = accounts || globalContext.accounts;
+    } catch (error) {
+      console.error(error);
+      resultOutput.innerText = `Error: ${error.message}`;
+    }
+  };
+
+  useExistingPasskeyButton.onclick = () => {
+    try {
+      const address = existingPasskeyAccountInput.value.trim();
+      if (!ethers.utils.isAddress(address)) {
+        throw new Error('Enter a valid existing passkey account address.');
+      }
+      lastPasskeyAccountAddress = address;
+      passkeyAddressOutput.innerText = address;
+      callsInput.value = formatResult(getDefaultCalls(address));
+      resultOutput.innerText = `Using existing passkey account: ${address}`;
     } catch (error) {
       console.error(error);
       resultOutput.innerText = `Error: ${error.message}`;
