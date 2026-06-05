@@ -6,6 +6,7 @@ import Constants from '../../constants.json';
 const DEFAULT_SPONSOR_MODE = 'disabled';
 const DEFAULT_SPONSOR_POLICY =
   'Sponsor co-authorization is required for this passkey smart account.';
+const TEST_ERC20_SUPPLY = '1000';
 const ERC20_INTERFACE = new ethers.utils.Interface([
   'function approve(address spender,uint256 amount)',
 ]);
@@ -494,14 +495,21 @@ export function paliPasskeysComponent(parentContainer) {
         Constants.hstBytecode,
         signer,
       );
-      const contract = await factory.deploy(10, 'TST', decimals, 'TST');
+      const contract = await factory.deploy(
+        TEST_ERC20_SUPPLY,
+        'TST',
+        decimals,
+        'TST',
+      );
       await contract.deployTransaction.wait();
 
       const passkeyAddress = getPasskeyAccountAddress();
       if (ethers.utils.isAddress(passkeyAddress)) {
-        const amount = erc20AmountInput.value || '1';
-        const tokenAmount = ethers.utils.parseUnits(amount, decimals);
-        const transfer = await contract.transfer(passkeyAddress, tokenAmount);
+        const fundedAmount = ethers.utils.parseUnits(
+          TEST_ERC20_SUPPLY,
+          decimals,
+        );
+        const transfer = await contract.transfer(passkeyAddress, fundedAmount);
         await transfer.wait();
       }
 
@@ -511,7 +519,7 @@ export function paliPasskeysComponent(parentContainer) {
       erc20TokenInput.value = contract.address;
       syncDeployButtons();
       resultOutput.innerText = ethers.utils.isAddress(passkeyAddress)
-        ? `Test ERC20 deployed and passkey funded: ${contract.address}`
+        ? `Test ERC20 deployed and passkey funded with ${TEST_ERC20_SUPPLY} TST: ${contract.address}`
         : `Test ERC20 deployed: ${contract.address}`;
     } catch (error) {
       console.error(error);
