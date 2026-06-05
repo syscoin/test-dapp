@@ -136,6 +136,18 @@ export function paliPasskeysComponent(parentContainer) {
             Deploy a test spender for the ERC20, then build an atomic approve + transferFrom batch.
           </p>
 
+          <div class="form-group">
+            <label>ERC20 Contract</label>
+            <input
+              class="form-control"
+              id="paliPasskeyErc20Token"
+              placeholder="0x..."
+            />
+            <small class="form-text text-muted">
+              Enter the ERC20 token address before deploying its test spender.
+            </small>
+          </div>
+
           <button
             class="btn btn-secondary btn-lg btn-block mb-3"
             id="paliDeployTokenSpender"
@@ -147,15 +159,6 @@ export function paliPasskeysComponent(parentContainer) {
           <p class="info-text alert alert-success">
             Token spender: <span id="paliTokenSpenderAddress"></span>
           </p>
-
-          <div class="form-group">
-            <label>ERC20 Contract</label>
-            <input
-              class="form-control"
-              id="paliPasskeyErc20Token"
-              placeholder="0x..."
-            />
-          </div>
 
           <div class="form-group">
             <label>Token Spender Contract</label>
@@ -274,14 +277,24 @@ export function paliPasskeysComponent(parentContainer) {
     passkeyAddressOutput.innerText = lastPasskeyAccountAddress;
   }
 
+  let isConnected = false;
+
+  function syncDeployTokenSpenderButton() {
+    deployTokenSpenderButton.disabled =
+      !isConnected || !ethers.utils.isAddress(erc20TokenInput.value.trim());
+  }
+
   callsInput.value = formatResult(getDefaultCalls(''));
   syncSponsorFields();
+  syncDeployTokenSpenderButton();
 
   sponsorModeInput.onchange = syncSponsorFields;
+  erc20TokenInput.oninput = syncDeployTokenSpenderButton;
 
   document.addEventListener('globalConnectionChange', function (event) {
+    isConnected = event.detail.connected;
     createButton.disabled = !event.detail.connected;
-    deployTokenSpenderButton.disabled = !event.detail.connected;
+    syncDeployTokenSpenderButton();
     buildErc20BatchButton.disabled = !event.detail.connected;
     batchButton.disabled = !event.detail.connected;
     if (event.detail.connected) {
@@ -290,6 +303,7 @@ export function paliPasskeysComponent(parentContainer) {
   });
 
   document.addEventListener('disableAndClear', function () {
+    isConnected = false;
     createButton.disabled = true;
     deployTokenSpenderButton.disabled = true;
     buildErc20BatchButton.disabled = true;
