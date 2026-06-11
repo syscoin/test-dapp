@@ -171,7 +171,9 @@ export function paliPasskeysComponent(parentContainer) {
 
           <div class="form-group">
             <label for="paliSaCustomBatchId">
-              Custom batch id (optional, hex; resubmitting the same id must fail with 5720)
+              Custom batch id (optional, hex; resubmitting the same id must fail
+              with 5720; status buttons query this id when filled, so an unknown
+              id must fail with 5730)
             </label>
             <input class="form-control" id="paliSaCustomBatchId" placeholder="0x..." />
           </div>
@@ -287,9 +289,10 @@ export function paliPasskeysComponent(parentContainer) {
     els.useConnected.disabled =
       !isConnected || !ethers.utils.isAddress(getConnectedAddress());
     els.capabilities.disabled = !isConnected;
+    const hasStatusId = Boolean(lastBatchId || els.customBatchId.value.trim());
     els.sendCalls.disabled = !isConnected || !hasAccount;
-    els.callsStatus.disabled = !isConnected || !lastBatchId;
-    els.showCallsStatus.disabled = !isConnected || !lastBatchId;
+    els.callsStatus.disabled = !isConnected || !hasStatusId;
+    els.showCallsStatus.disabled = !isConnected || !hasStatusId;
     els.loadModules.disabled = !isConnected || !hasAccount;
     els.installModule.disabled = !isConnected || !hasAccount;
     els.uninstallModule.disabled = !isConnected || !hasAccount;
@@ -307,6 +310,7 @@ export function paliPasskeysComponent(parentContainer) {
 
   els.authenticator.onchange = syncAuthenticatorFields;
   els.address.oninput = syncButtons;
+  els.customBatchId.oninput = syncButtons;
 
   document.addEventListener('globalConnectionChange', (event) => {
     isConnected = event.detail.connected;
@@ -481,14 +485,24 @@ export function paliPasskeysComponent(parentContainer) {
     }
   };
 
+  // Status methods query the custom batch id field when filled (so unknown
+  // ids can be exercised against the 5730 path) and otherwise fall back to
+  // the id returned by the last successful wallet_sendCalls.
+  const getStatusBatchId = () => {
+    const id = els.customBatchId.value.trim() || lastBatchId;
+    if (!id) {
+      throw new Error(
+        'Send a batch first or enter a custom batch id to query.',
+      );
+    }
+    return id;
+  };
+
   els.callsStatus.onclick = async () => {
     try {
-      if (!lastBatchId) {
-        throw new Error('Send a batch first to get a batch id.');
-      }
       const result = await getProvider().request({
         method: 'wallet_getCallsStatus',
-        params: [lastBatchId],
+        params: [getStatusBatchId()],
       });
       const labels = {
         100: 'pending',
@@ -508,12 +522,9 @@ export function paliPasskeysComponent(parentContainer) {
 
   els.showCallsStatus.onclick = async () => {
     try {
-      if (!lastBatchId) {
-        throw new Error('Send a batch first to get a batch id.');
-      }
       const result = await getProvider().request({
         method: 'wallet_showCallsStatus',
-        params: [lastBatchId],
+        params: [getStatusBatchId()],
       });
       showResult(
         `wallet_showCallsStatus resolved (${pretty(
