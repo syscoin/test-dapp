@@ -18,16 +18,17 @@ There is a second page (`request.html`) that allows making requests directly to 
 
 It can be used by navigating to `/request.html?method=${METHOD}&params=${PARAMS}` (e.g. `/request.html?method=eth_getLogs&params=[{ "address": "0x0000000000000000000000000000000000000000" }]`). The page will make a request with the given RPC method and parameters using `ethereum.request`, and report the result as plain text.
 
-## Pali Passkey Testing
+## Pali Smart Account Testing
 
-The Syscoin fork adds a **Pali Passkeys** card to the main page. Use it with the Pali extension to test:
+The Syscoin fork adds a **Pali Smart Account** card to the main page. Use it with the Pali extension to exercise the full dapp-facing ERC-4337 / ERC-7579 surface:
 
-- `wallet_createPasskeyAccount` dapp account creation/registration.
-- Sponsor mode, sponsor service URL, sponsor signer, and policy text inputs.
-- Passkey smart-account batch execution through `wallet_sendCalls`.
-- Atomic ERC20 `approve` + spender `transferFrom` test flows.
+- `wallet_prepareSmartAccount` — create and register an account with either a passkey (P-256 WebAuthn) or an ECDSA authenticator (connected-key bootstrap or explicit owners + threshold).
+- `wallet_getCapabilities` — confirm atomic batch support for the account.
+- `wallet_sendCalls` / `wallet_getCallsStatus` / `wallet_showCallsStatus` — run an editable atomic batch, poll its EIP-5792 status (`100` pending, `200` confirmed, `500` reverted, `600` partially reverted) with on-chain receipts, or open the wallet's own status popup. An optional custom batch id exercises dapp-provided ids (resubmitting the same id must fail with `5720`). Helpers load a canonical ERC20 `approve` + spender `transferFrom` batch (one signature, two effects) or append a reverting call to verify that `atomicRequired` rolls the whole batch back.
+- `wallet_getSmartAccountModules` — list installed ERC-7579 modules and the active validator.
+- `wallet_requestSmartAccountModuleInstall` / `wallet_requestSmartAccountModuleUninstall` — request module install/uninstall (with optional init data and label).
 
-Existing transaction cards can also be used after the passkey smart account is connected as the active account. The dedicated Pali batch button is included for smart-account-specific batch request testing.
+Existing transaction cards can also be used once the smart account is connected as the active account.
 
 ## Contributing
 
