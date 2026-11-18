@@ -1,9 +1,9 @@
 {
   "name": "@syscoin/test-dapp",
-  "version": "9.9.0",
+  "version": "9.10.0",
   "description": "A Syscoin-maintained test dapp for wallet integration testing.",
   "engines": {
-    "node": ">= 18.0.0"
+    "node": ">=24.22.1 <25"
   },
   "scripts": {
     "setup": "yarn install && yarn allow-scripts",
@@ -14,9 +14,11 @@
     "lint:fix": "yarn lint:eslint --fix && yarn lint:misc --write",
     "start": "webpack-dev-server",
     "build": "webpack --mode production",
-    "test": "yarn lint",
+    "test:smoke": "node scripts/smoke-test.js",
+    "test": "node --test scripts/pali-walletconnect.test.cjs && yarn lint",
     "update-changelog": "auto-changelog update",
-    "prepublishOnly": "yarn test && yarn build"
+    "prepublishOnly": "yarn test && yarn build",
+    "test:pali-browser": "node --test scripts/*.browser.test.cjs"
   },
   "publishConfig": {
     "access": "public"
@@ -35,13 +37,17 @@
   },
   "homepage": "https://syscoin-test-dapp.vercel.app",
   "resolutions": {
-    "elliptic": "^6.6.1"
+    "**/@ethersproject/providers/ws": "^7.5.11",
+    "**/engine.io-client/ws": "^8.21.0",
+    "elliptic": "^6.6.1",
+    "uuid": "^11.1.1"
   },
   "dependencies": {},
   "devDependencies": {
-    "@lavamoat/allow-scripts": "^2.5.1",
+    "@lavamoat/allow-scripts": "^4.0.0",
     "@lavamoat/preinstall-always-fail": "^2.0.0",
     "@metamask/auto-changelog": "^2.5.0",
+    "@metamask/connect-evm": "^1.4.0",
     "@metamask/eslint-config": "^6.0.0",
     "@metamask/eslint-config-nodejs": "^6.0.0",
     "@metamask/eth-sig-util": "^7.0.1",
@@ -49,11 +55,11 @@
     "@metamask/sdk": "0.34.0",
     "@openzeppelin/contracts": "4.9.6",
     "@walletconnect/modal": "^2.6.2",
-    "@web3modal/ethers5": "^3.2.0",
+    "@walletconnect/sign-client": "2.26.0",
     "assert": "^2.1.0",
     "base64-sol": "1.1.0",
     "clean-webpack-plugin": "^4.0.0",
-    "copy-webpack-plugin": "^11.0.0",
+    "copy-webpack-plugin": "^14.0.0",
     "eslint": "^7.29.0",
     "eslint-config-prettier": "^8.3.0",
     "eslint-plugin-import": "^2.23.4",
@@ -62,12 +68,13 @@
     "ethereumjs-util": "^5.1.1",
     "ethers": "5.7.2",
     "gh-pages": "^5.0.0",
+    "playwright": "1.61.1",
     "prettier": "^2.3.1",
     "process": "^0.11.10",
     "stream-browserify": "^3.0.0",
     "webpack": "^5.89.0",
     "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^4.15.1"
+    "webpack-dev-server": "^5.2.7"
   },
   "lavamoat": {
     "allowScripts": {
@@ -75,14 +82,14 @@
       "eth-sig-util>ethereumjs-abi>ethereumjs-util>keccakjs>sha3": false,
       "ethereumjs-util>keccak": false,
       "ethereumjs-util>secp256k1": false,
-      "@web3modal/ethers5>@coinbase/wallet-sdk>@solana/web3.js>bigint-buffer": false,
-      "@web3modal/ethers5>@coinbase/wallet-sdk>keccak": false,
       "webpack-dev-server>ws>bufferutil": false,
       "webpack-dev-server>ws>utf-8-validate": false,
       "@metamask/sdk>@metamask/sdk-communication-layer>bufferutil": false,
       "@metamask/sdk>@metamask/sdk-communication-layer>utf-8-validate": false,
       "@metamask/sdk>eciesjs>secp256k1": false,
-      "@web3modal/ethers5>@coinbase/wallet-sdk>@solana/web3.js>rpc-websockets>utf-8-validate": false
+      "@metamask/connect-evm>@metamask/connect-multichain>@metamask/mobile-wallet-protocol-core>centrifuge>protobufjs": false,
+      "ethereumjs-util>ethereum-cryptography>keccak": false,
+      "ethereumjs-util>ethereum-cryptography>secp256k1": false
     }
   },
   "packageManager": "yarn@1.22.22"

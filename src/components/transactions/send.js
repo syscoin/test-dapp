@@ -354,7 +354,7 @@ export function sendComponent(parentContainer) {
     console.log(
       `Contract mined! address: ${failingContract.address} transactionHash: ${failingContract.deployTransaction.hash}`,
     );
-    failingContractStatus.innerHTML = 'Deployed';
+    failingContractStatus.textContent = `Deployed at ${failingContract.address}`;
     sendFailingButton.disabled = false;
   };
 

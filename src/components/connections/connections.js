@@ -19,18 +19,25 @@ export function connectionsComponent(parentContainer) {
             Connect
           </button>
 
+          <label for="walletConnectChains">WalletConnect chain IDs</label>
+          <input id="walletConnectChains" class="form-control mb-2" value="1" />
           <button
             class="btn btn-primary btn-lg btn-block mb-3"
             id="walletConnect"
           >
-          Wallet Connect
+          WalletConnect
           </button>
+          <p id="walletConnectError" role="alert"></p>
           <button
             class="btn btn-primary btn-lg btn-block mb-3"
             id="sdkConnect"
           >
           SDK Connect
           </button>
+          <button
+            class="btn btn-primary btn-lg btn-block mb-3"
+            id="connectEvm"
+          >MetaMask Connect</button>
           <hr />
           <button
             class="btn btn-primary btn-lg btn-block mb-3"
@@ -51,6 +58,7 @@ export function connectionsComponent(parentContainer) {
   const onboardButton = document.getElementById('connectButton');
   const walletConnectBtn = document.getElementById('walletConnect');
   const sdkConnectBtn = document.getElementById('sdkConnect');
+  const connectEvmBtn = document.getElementById('connectEvm');
   */
   const getAccounts = document.getElementById('getAccounts');
   const getAccountsResult = document.getElementById('getAccountsResult');
