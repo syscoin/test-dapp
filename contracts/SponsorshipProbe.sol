@@ -2,13 +2,17 @@
 pragma solidity ^0.8.20;
 
 /// Used to test Paid by MetaMask on a sponsored network.
-/// `burn` writes one storage slot per iteration and succeeds.
+/// `burn` writes one fresh storage slot per iteration.
 contract SponsorshipProbe {
     mapping(uint256 => uint256) public slots;
+    uint256 private nextSlot;
 
     function burn(uint256 iterations) external {
-        for (uint256 i = 0; i < iterations; i++) {
+        uint256 start = nextSlot;
+        uint256 end = start + iterations;
+        for (uint256 i = start; i < end; i++) {
             slots[i] = i + 1;
         }
+        nextSlot = end;
     }
 }

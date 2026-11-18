@@ -5,8 +5,8 @@ import {
   sponsorshipProbeBytecode,
 } from './sponsorship-probe';
 
-// Cold SSTORE of a zero slot is 20,000, plus the cold-account access.
-const GAS_PER_ITERATION = 22000;
+// A zero-to-nonzero SSTORE costs 20,000 gas plus 2,100 for cold slot access.
+const STORAGE_GAS_PER_ITERATION = 22100;
 const MAX_ITERATIONS = 500;
 
 const probeInterface = new ethers.utils.Interface(sponsorshipProbeAbi);
@@ -38,7 +38,7 @@ export function sponsorshipComponent(parentContainer) {
 
             <div class="form-group">
                 <label for="sponsorshipIterations">
-                    Storage writes (~22k gas each)
+                    Fresh storage writes (~22.1k gas each)
                 </label>
                 <input
                     class="form-control"
@@ -149,8 +149,8 @@ export function sponsorshipComponent(parentContainer) {
         throw new Error('Deploy the gas burner first.');
       }
       const iterations = readIterations();
-      const approximateGas = iterations * GAS_PER_ITERATION;
-      status.innerHTML = `Waiting for confirmation. About ${approximateGas} gas, no gas limit on the request.`;
+      const storageGas = iterations * STORAGE_GAS_PER_ITERATION;
+      status.textContent = `Waiting for wallet approval. About ${storageGas} gas for storage writes plus overhead.`;
       const txHash = await globalContext.provider.request({
         method: 'eth_sendTransaction',
         params: [
@@ -161,7 +161,7 @@ export function sponsorshipComponent(parentContainer) {
           },
         ],
       });
-      status.innerHTML = `Submitted ${txHash}. About ${approximateGas} gas was executed. Compare gasUsed on the explorer.`;
+      status.textContent = `Submitted ${txHash}. Check gasUsed on the explorer after confirmation.`;
       console.log('burn gas', txHash);
     } catch (error) {
       status.innerHTML = error.message || 'Burn failed';
