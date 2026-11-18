@@ -9,7 +9,7 @@ Currently hosted [here](https://syscoin-test-dapp.vercel.app/).
 If you wish to use this dapp in your e2e tests, install this package and set up a script of e.g. the following form:
 
 ```shell
-static-server node_modules/@metamask/test-dapp/dist --port 9011
+static-server node_modules/@syscoin/test-dapp/dist --port 9011
 ```
 
 The main page of the test dapp includes a simple UI featuring buttons for common dapp interactions.
@@ -34,9 +34,10 @@ Existing transaction cards can also be used once the smart account is connected 
 
 ### Setup
 
-- Install [Node.js](https://nodejs.org) version 16
-  - If you are using [nvm](https://github.com/creationix/nvm#installation) (recommended) running `nvm use` will automatically choose the right node version for you.
-- Install [Yarn v1](https://yarnpkg.com/en/docs/install)
+- Install [Node.js](https://nodejs.org) >=24.22.1
+  - If you are using [nvm](https://github.com/creationix/nvm#installation) (recommended), running `nvm use` will automatically choose the version from `.nvmrc`.
+  - Node.js 24.22.1 or later is required, including when installing the published package.
+- Install [Yarn 1.22.22](https://classic.yarnpkg.com/en/docs/install)
 - Run `yarn setup` to install dependencies and run any required post-install scripts
   - **Warning:** Do not use the `yarn` / `yarn install` command directly. Use `yarn setup` instead. The normal install command will skip required post-install scripts, leaving your development environment in an invalid state.
 
@@ -44,7 +45,7 @@ Existing transaction cards can also be used once the smart account is connected 
 
 Run `yarn lint` to run the linter, or run `yarn lint:fix` to run the linter and fix any automatically fixable issues.
 
-This package has no tests.
+Run `yarn build && yarn test:smoke` to check that the production artifact contains both pages and their local assets. This does not execute the browser JavaScript, test wallet flows, or verify the deployed GitHub Pages site.
 
 ### Deploying
 

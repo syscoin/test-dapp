@@ -81,9 +81,40 @@ const NETWORKS = [
     category: 'main',
   },
   {
+    name: 'Pharos',
+    chainId: '0x688',
+    color: '#3B82F6',
+    category: 'main',
+  },
+  {
+    name: 'RISE Mainnet',
+    chainId: '0x1039',
+    color: '#04DF83',
+    category: 'main',
+  },
+  {
     name: 'Tempo Mainnet (Presto)',
     chainId: '0x1079',
     color: '#dcdcdc',
+    category: 'main',
+  },
+  {
+    name: 'Arc',
+    chainId: '0x13b2',
+    color: '#7b3fe4',
+    gradient: 'linear-gradient(135deg, #a855f7 0%, #6d28d9 50%, #4c1d95 100%)',
+    category: 'main',
+  },
+  {
+    name: 'Elysium Mainnet',
+    chainId: '0x1863d',
+    color: '#04181C',
+    category: 'main',
+  },
+  {
+    name: '0G',
+    chainId: '0x4115',
+    color: '#B75FFF',
     category: 'main',
   },
 
@@ -146,7 +177,9 @@ export function createNetworkItem(network) {
   item.dataset.chainId = network.chainId;
   item.innerHTML = `
     <div class="network-modal-item-content">
-      <div class="network-modal-item-icon" style="background-color: ${network.color}"></div>
+      <div class="network-modal-item-icon" style="background: ${
+        network.gradient || network.color
+      }"></div>
       <div class="network-modal-item-info">
         <div class="network-modal-item-name">${network.name}</div>
         <div class="network-modal-item-chain-id">${network.chainId}</div>
