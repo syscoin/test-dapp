@@ -28,7 +28,7 @@ module.exports = {
   },
   output: {
     path: DIST,
-    publicPath: DIST,
+    publicPath: 'auto',
   },
   devServer: {
     client: {

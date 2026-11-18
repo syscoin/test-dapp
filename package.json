@@ -15,9 +15,10 @@
     "start": "webpack-dev-server",
     "build": "webpack --mode production",
     "test:smoke": "node scripts/smoke-test.js",
-    "test": "yarn lint",
+    "test": "node --test scripts/pali-walletconnect.test.cjs && yarn lint",
     "update-changelog": "auto-changelog update",
-    "prepublishOnly": "yarn test && yarn build"
+    "prepublishOnly": "yarn test && yarn build",
+    "test:pali-browser": "node --test scripts/*.browser.test.cjs"
   },
   "publishConfig": {
     "access": "public"
@@ -54,7 +55,7 @@
     "@metamask/sdk": "0.34.0",
     "@openzeppelin/contracts": "4.9.6",
     "@walletconnect/modal": "^2.6.2",
-    "@web3modal/ethers5": "^3.2.0",
+    "@walletconnect/sign-client": "2.26.0",
     "assert": "^2.1.0",
     "base64-sol": "1.1.0",
     "clean-webpack-plugin": "^4.0.0",
@@ -67,6 +68,7 @@
     "ethereumjs-util": "^5.1.1",
     "ethers": "5.7.2",
     "gh-pages": "^5.0.0",
+    "playwright": "1.61.1",
     "prettier": "^2.3.1",
     "process": "^0.11.10",
     "stream-browserify": "^3.0.0",
@@ -80,14 +82,11 @@
       "eth-sig-util>ethereumjs-abi>ethereumjs-util>keccakjs>sha3": false,
       "ethereumjs-util>keccak": false,
       "ethereumjs-util>secp256k1": false,
-      "@web3modal/ethers5>@coinbase/wallet-sdk>@solana/web3.js>bigint-buffer": false,
-      "@web3modal/ethers5>@coinbase/wallet-sdk>keccak": false,
       "webpack-dev-server>ws>bufferutil": false,
       "webpack-dev-server>ws>utf-8-validate": false,
       "@metamask/sdk>@metamask/sdk-communication-layer>bufferutil": false,
       "@metamask/sdk>@metamask/sdk-communication-layer>utf-8-validate": false,
       "@metamask/sdk>eciesjs>secp256k1": false,
-      "@web3modal/ethers5>@coinbase/wallet-sdk>@solana/web3.js>rpc-websockets>utf-8-validate": false,
       "@metamask/connect-evm>@metamask/connect-multichain>@metamask/mobile-wallet-protocol-core>centrifuge>protobufjs": false,
       "ethereumjs-util>ethereum-cryptography>keccak": false,
       "ethereumjs-util>ethereum-cryptography>secp256k1": false

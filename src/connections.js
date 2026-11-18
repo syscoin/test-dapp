@@ -1,6 +1,6 @@
-import { MetaMaskSDK } from '@metamask/sdk';
-import dappMetadata from './dapp-metadata';
-import globalContext, {
+import dappMetadata, { WALLET_CONNECT_PROJECT_ID } from './dapp-metadata';
+import { createPaliWalletConnect } from './pali-walletconnect';
+import {
   handleNewAccounts,
   handleNewProviderDetail,
   removeProviderDetail,
@@ -10,27 +10,24 @@ import globalContext, {
   updateWalletConnectState,
 } from '.';
 
-const sdk = new MetaMaskSDK({ dappMetadata });
-
-export const initializeWeb3Modal = () => {
-  try {
-    // eslint-disable-next-line node/global-require
-    const { createWeb3Modal, defaultConfig } = require('@web3modal/ethers5');
-
-    const web3Modal = createWeb3Modal({
-      ethersConfig: defaultConfig({ metadata: dappMetadata }),
-      projectId: 'e6360eaee594162688065f1c70c863b7',
-    });
-
-    console.log('Web3Modal initialized successfully');
-    return web3Modal;
-  } catch (error) {
-    console.error('Error initializing Web3Modal', error);
-    return null;
+let sdkPromise;
+function getSdk() {
+  if (!sdkPromise) {
+    sdkPromise = import('@metamask/sdk')
+      .then(({ MetaMaskSDK }) => new MetaMaskSDK({ dappMetadata }))
+      .catch((error) => {
+        sdkPromise = undefined;
+        throw error;
+      });
   }
-};
+  return sdkPromise;
+}
 
-export const walletConnect = initializeWeb3Modal();
+const walletConnect = createPaliWalletConnect({
+  metadata: dappMetadata,
+  projectId: WALLET_CONNECT_PROJECT_ID,
+});
+const WALLET_CONNECT_NAME = 'WalletConnect';
 
 function _setProviderDetail(provider, name, uuid) {
   const providerDetail = {
@@ -46,6 +43,7 @@ function _setProviderDetail(provider, name, uuid) {
 }
 
 export async function handleSdkConnect(name, button, isConnected) {
+  const sdk = await getSdk();
   if (isConnected) {
     updateSdkConnectionState(false);
     const activeProviderRemoved = removeProviderDetail(name);
@@ -81,37 +79,58 @@ export async function handleSdkConnect(name, button, isConnected) {
   }
 }
 
-export async function handleWalletConnect(name, button, isConnected) {
-  if (isConnected) {
-    updateWalletConnectState(false);
-    const activeProviderRemoved = removeProviderDetail(name);
-    button.innerText = 'Wallet Connect';
-    button.classList.add('btn-primary');
-    button.classList.remove('btn-danger');
-    if (activeProviderRemoved) {
+function setWalletConnectControls(button, chains, connected) {
+  updateWalletConnectState(connected);
+  button.innerText = connected
+    ? 'Disconnect WalletConnect'
+    : WALLET_CONNECT_NAME;
+  button.classList.toggle('btn-primary', !connected);
+  button.classList.toggle('btn-danger', connected);
+  chains.disabled = connected;
+}
+
+let unsubscribeWalletDisconnect;
+
+export async function handleWalletConnect(button, isConnected) {
+  const chains = document.getElementById('walletConnectChains');
+  const error = document.getElementById('walletConnectError');
+  error.textContent = '';
+  button.disabled = true;
+  const clearConnection = () => {
+    unsubscribeWalletDisconnect?.();
+    unsubscribeWalletDisconnect = undefined;
+    setWalletConnectControls(button, chains, false);
+    if (removeProviderDetail(WALLET_CONNECT_NAME)) {
       updateFormElements();
     }
-  } else {
-    const { provider } = walletConnect.getWalletProvider();
-    const uuid = provider.signer.uri;
-    const providerDetail = _setProviderDetail(provider, name, uuid);
-    await setActiveProviderDetail(providerDetail);
-    handleNewProviderDetail(providerDetail);
-    updateWalletConnectState(true);
-    button.innerText = 'Wallet Connect - Disconnect';
-    button.classList.remove('btn-primary');
-    button.classList.add('btn-danger');
-
-    updateFormElements();
-
-    try {
-      const newAccounts = await provider.request({
-        method: 'eth_accounts',
-      });
-      handleNewAccounts(newAccounts);
-    } catch (err) {
-      console.error('Error on init when getting accounts', err);
+  };
+  try {
+    if (isConnected) {
+      await walletConnect.disconnect();
+      return;
     }
-    globalContext.connected = true;
+    const provider = await walletConnect.connect(
+      chains.value.split(',').map((chain) => chain.trim()),
+    );
+    const providerDetail = {
+      info: {
+        uuid: 'wallet-connect',
+        name: WALLET_CONNECT_NAME,
+        icon: './wallet-connect.svg',
+        rdns: 'org.walletconnect',
+      },
+      provider,
+    };
+    handleNewProviderDetail(providerDetail);
+    unsubscribeWalletDisconnect = walletConnect.onDisconnect(clearConnection);
+    await setActiveProviderDetail(providerDetail);
+    if (unsubscribeWalletDisconnect) {
+      setWalletConnectControls(button, chains, true);
+    }
+    updateFormElements();
+  } catch (err) {
+    error.textContent = err.message || 'WalletConnect failed.';
+  } finally {
+    button.disabled = false;
   }
 }

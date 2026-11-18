@@ -1,10 +1,6 @@
 import MetaMaskOnboarding from '@metamask/onboarding';
 import { ethers } from 'ethers';
-import {
-  handleSdkConnect,
-  handleWalletConnect,
-  walletConnect,
-} from './connections';
+import { handleSdkConnect, handleWalletConnect } from './connections';
 import { handleConnectEvm } from './connect-evm';
 import Constants from './constants.json';
 import { NETWORKS_BY_CHAIN_ID } from './onchain-sample-contracts';
@@ -57,6 +53,7 @@ import {
 } from './components/connections/networks-helpers';
 import { tempoTransactionsComponent } from './components/tempo-transactions/tempo-transactions';
 import { paliPasskeysComponent } from './components/passkeys';
+import { syscoinOperationsComponent } from './components/sentry-operations';
 
 const {
   hstBytecode,
@@ -174,6 +171,7 @@ connectionsComponent(connectionsRow);
 permissionsComponent(connectionsRow);
 networksComponent(connectionsRow);
 paliPasskeysComponent(connectionsRow);
+syscoinOperationsComponent(connectionsRow);
 
 // Connection buttons set up by this file
 const onboardButton = document.getElementById('connectButton');
@@ -249,6 +247,7 @@ ensResolutionComponent(resolutionsSection);
  */
 
 const providerDetails = [];
+let providerActivation = 0;
 let scrollToHandled = false;
 
 const isPaliProviderInfo = (info = {}) => {
@@ -273,7 +272,6 @@ const isMetaMaskConnected = () =>
 let isWalletConnectConnected = false;
 let isSdkConnected = false;
 let isConnectEvmConnected = false;
-let unsubscribeWalletConnectProvider;
 
 const canProviderRequest = (provider) =>
   Boolean(provider && typeof provider.request === 'function');
@@ -296,29 +294,8 @@ const removeProviderListener = (provider, eventName, listener) => {
   }
 };
 
-const ensureWalletConnectSubscription = () => {
-  if (unsubscribeWalletConnectProvider) {
-    return;
-  }
-
-  unsubscribeWalletConnectProvider = walletConnect.subscribeProvider(
-    ({ isConnected }) => {
-      if (isConnected === isWalletConnectConnected) {
-        return;
-      }
-
-      handleWalletConnect(
-        'wallet-connect',
-        walletConnectBtn,
-        isWalletConnectConnected,
-      );
-    },
-  );
-};
-
-walletConnectBtn.onclick = () => {
-  ensureWalletConnectSubscription();
-  walletConnect.open();
+walletConnectBtn.onclick = async () => {
+  await handleWalletConnect(walletConnectBtn, isWalletConnectConnected);
 };
 
 sdkConnectBtn.onclick = async () => {
@@ -370,8 +347,12 @@ export const setActiveProviderDetail = async (providerDetail) => {
   }
 
   closeProvider();
+  const activation = providerActivation;
   globalContext.provider = providerDetail.provider;
-  await initializeProvider();
+  await initializeProvider(providerDetail.provider, activation);
+  if (activation !== providerActivation) {
+    return;
+  }
 
   const { uuid, name, icon } = providerDetail.info;
   activeProviderUUIDResult.innerText = uuid;
@@ -567,24 +548,26 @@ function handleNewNetwork(networkId) {
   document.dispatchEvent(changeEvent);
 }
 
-const getNetworkAndChainId = async () => {
+const getNetworkAndChainId = async (provider, activation) => {
   try {
-    const chainId = await globalContext.provider.request({
+    const chainId = await provider.request({
       method: 'eth_chainId',
     });
+    if (activation !== providerActivation) {
+      return;
+    }
     handleNewChain(chainId);
 
     let networkId;
     try {
-      networkId = await globalContext.provider.request({
-        method: 'net_version',
-      });
+      networkId = await provider.request({ method: 'net_version' });
     } catch {
       networkId = String(parseInt(chainId, 16));
     }
-    handleNewNetwork(networkId);
-
-    handleEIP1559Support();
+    if (activation === providerActivation) {
+      handleNewNetwork(networkId);
+      handleEIP1559Support();
+    }
   } catch (err) {
     console.error(err);
   }
@@ -598,10 +581,20 @@ const handleEIP1559Support = async () => {
     return;
   }
 
-  const block = await globalContext.provider.request({
-    method: 'eth_getBlockByNumber',
-    params: ['latest', false],
-  });
+  const activation = providerActivation;
+  let block;
+  try {
+    block = await globalContext.provider.request({
+      method: 'eth_getBlockByNumber',
+      params: ['latest', false],
+    });
+  } catch {
+    // This optional read can be declined by the peer or interrupted by disconnect.
+    return;
+  }
+  if (activation !== providerActivation || !block) {
+    return;
+  }
 
   const supported = block.baseFeePerGas !== undefined;
 
@@ -614,6 +607,7 @@ const handleEIP1559Support = async () => {
 // Must be called before the active provider changes
 // Resets provider state and removes any listeners from active provider
 const closeProvider = () => {
+  providerActivation += 1;
   const previousProvider = globalContext.provider;
 
   globalContext.provider = undefined;
@@ -644,7 +638,7 @@ const closeProvider = () => {
 
 // Must be called after the active provider changes
 // Initializes active provider and adds any listeners
-const initializeProvider = async () => {
+const initializeProvider = async (provider, activation) => {
   if (!isProviderAvailableForDapp()) {
     updateFormElements();
     handleScrollTo();
@@ -654,24 +648,29 @@ const initializeProvider = async () => {
   initializeContracts();
   updateFormElements();
 
-  if ('autoRefreshOnNetworkChange' in globalContext.provider) {
-    globalContext.provider.autoRefreshOnNetworkChange = false;
+  if ('autoRefreshOnNetworkChange' in provider) {
+    provider.autoRefreshOnNetworkChange = false;
   }
-  await getNetworkAndChainId();
+  await getNetworkAndChainId(provider, activation);
+  if (activation !== providerActivation) {
+    return;
+  }
 
-  if (canSubscribeToProviderEvents()) {
-    globalContext.provider.on('chainChanged', handleNewChain);
-    globalContext.provider.on('chainChanged', handleEIP1559Support);
-    globalContext.provider.on('networkChanged', handleNewNetwork);
-    globalContext.provider.on('accountsChanged', handleNewAccounts);
-    globalContext.provider.on('accountsChanged', handleEIP1559Support);
+  if (canSubscribeToProviderEvents(provider)) {
+    provider.on('chainChanged', handleNewChain);
+    provider.on('chainChanged', handleEIP1559Support);
+    provider.on('networkChanged', handleNewNetwork);
+    provider.on('accountsChanged', handleNewAccounts);
+    provider.on('accountsChanged', handleEIP1559Support);
   }
 
   try {
-    const newAccounts = await globalContext.provider.request({
+    const newAccounts = await provider.request({
       method: 'eth_accounts',
     });
-    handleNewAccounts(newAccounts);
+    if (activation === providerActivation) {
+      handleNewAccounts(newAccounts);
+    }
   } catch (err) {
     console.error('Error on init when getting accounts', err);
   }
@@ -833,10 +832,13 @@ const updateOnboardElements = () => {
     onboardButton.innerText = 'Connect';
     onboardButton.onclick = async () => {
       try {
+        const activation = providerActivation;
         const newAccounts = await globalContext.provider.request({
           method: 'eth_requestAccounts',
         });
-        handleNewAccounts(newAccounts);
+        if (activation === providerActivation) {
+          handleNewAccounts(newAccounts);
+        }
       } catch (error) {
         console.error(error);
       }

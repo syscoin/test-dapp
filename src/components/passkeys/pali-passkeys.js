@@ -19,9 +19,6 @@ import globalContext from '../..';
 // ---------------------------------------------------------------------------
 
 const SEND_CALLS_VERSION = '2.0.0';
-// Reverts unconditionally (Solidity `assert(false)` / invalid opcode); used to
-// prove that atomicRequired rolls the whole batch back.
-const REVERTING_CALLDATA = '0xfe';
 const ERC20_INTERFACE = new ethers.utils.Interface([
   'function approve(address spender,uint256 amount)',
   'function transferFrom(address from,address to,uint256 amount)',
@@ -153,6 +150,11 @@ export function paliPasskeysComponent(parentContainer) {
             <input class="form-control" id="paliSaErc20Amount" value="1" />
           </div>
 
+          <div class="form-group">
+            <label for="paliSaFailingContract">Failing contract address (for the revert test)</label>
+            <input class="form-control" id="paliSaFailingContract" placeholder="0x deployed failing contract" />
+            <small class="form-text text-muted">Use Deploy Failing Contract on the current chain, then paste its address here.</small>
+          </div>
           <div class="d-flex" style="gap:0.5rem;">
             <button class="btn btn-outline-secondary btn-block mb-2" id="paliSaBuildErc20">
               Load ERC20 approve + transferFrom
@@ -248,6 +250,7 @@ export function paliPasskeysComponent(parentContainer) {
     erc20Recipient: document.getElementById('paliSaErc20Recipient'),
     erc20Amount: document.getElementById('paliSaErc20Amount'),
     buildErc20: document.getElementById('paliSaBuildErc20'),
+    failingContract: document.getElementById('paliSaFailingContract'),
     appendRevert: document.getElementById('paliSaAppendRevert'),
     atomicRequired: document.getElementById('paliSaAtomicRequired'),
     customBatchId: document.getElementById('paliSaCustomBatchId'),
@@ -321,6 +324,7 @@ export function paliPasskeysComponent(parentContainer) {
     isConnected = false;
     lastBatchId = '';
     els.address.value = '';
+    els.failingContract.value = '';
     els.calls.value = pretty(defaultSelfCalls(''));
     els.result.innerText = '';
     syncButtons();
@@ -440,16 +444,19 @@ export function paliPasskeysComponent(parentContainer) {
 
   els.appendRevert.onclick = () => {
     try {
-      const account = requireAddress(getSmartAccountAddress(), 'Smart account');
+      const target = requireAddress(
+        els.failingContract.value,
+        'Failing contract',
+      );
       const calls = JSON.parse(els.calls.value);
       if (!Array.isArray(calls)) {
         throw new Error('Calls JSON must be an array.');
       }
-      calls.push({ to: account, value: '0x0', data: REVERTING_CALLDATA });
+      // The bundled Failing Contract fallback rejects a zero-value call.
+      calls.push({ to: target, value: '0x0', data: '0x' });
       els.calls.value = pretty(calls);
       showResult(
-        'Appended a reverting call. With atomicRequired set, the entire ' +
-          'batch must roll back.',
+        'Appended a zero-value call to the Failing Contract. With atomicRequired set, its failure rolls back the batch.',
       );
     } catch (error) {
       showError(error);
