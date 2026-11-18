@@ -76,3 +76,15 @@ test('a superseded provider cannot apply its late chain, accounts or display nam
     assert.deepEqual(shown, [expected.name, '0x2', expected.account]);
   }
 });
+
+test('the install action is available without an injected wallet', async (t) => {
+  const browser = await chromium.launch();
+  t.after(() => browser.close());
+  const context = await browser.newContext({ serviceWorkers: 'block' });
+  const page = await loadDapp(context);
+  const connect = page.locator('#connectButton');
+  assert.equal(await connect.isEnabled(), true);
+  assert.equal(await connect.innerText(), 'Click here to install MetaMask!');
+  await connect.click();
+  assert.equal(await connect.innerText(), 'Onboarding in progress');
+});

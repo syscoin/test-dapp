@@ -20,39 +20,41 @@ async function loadDapp(context, rpc, { setup } = {}) {
   });
   await context.routeWebSocket('**/*', (socket) => socket.close());
   const page = await context.newPage();
-  await page.exposeFunction('mockDappRpc', rpc);
-  await page.addInitScript(() => {
-    const provider = {
-      async request(input) {
-        const reply = await window.mockDappRpc(input);
-        if (reply.error)
-          throw Object.assign(new Error(reply.error.message), reply.error);
-        return reply.result;
-      },
-      on() {
-        return this;
-      },
-      removeListener() {
-        return this;
-      },
-    };
-    window.ethereum = provider;
-    window.addEventListener('eip6963:requestProvider', () => {
-      window.dispatchEvent(
-        new CustomEvent('eip6963:announceProvider', {
-          detail: {
-            provider,
-            info: {
-              name: 'Pali test provider',
-              uuid: 'c0669206-c65e-4cc5-af11-c9bcc95f2067',
-              rdns: 'test.pali.wallet',
-              icon: 'data:image/svg+xml,%3Csvg/%3E',
+  if (rpc) {
+    await page.exposeFunction('mockDappRpc', rpc);
+    await page.addInitScript(() => {
+      const provider = {
+        async request(input) {
+          const reply = await window.mockDappRpc(input);
+          if (reply.error)
+            throw Object.assign(new Error(reply.error.message), reply.error);
+          return reply.result;
+        },
+        on() {
+          return this;
+        },
+        removeListener() {
+          return this;
+        },
+      };
+      window.ethereum = provider;
+      window.addEventListener('eip6963:requestProvider', () => {
+        window.dispatchEvent(
+          new CustomEvent('eip6963:announceProvider', {
+            detail: {
+              provider,
+              info: {
+                name: 'Pali test provider',
+                uuid: 'c0669206-c65e-4cc5-af11-c9bcc95f2067',
+                rdns: 'test.pali.wallet',
+                icon: 'data:image/svg+xml,%3Csvg/%3E',
+              },
             },
-          },
-        }),
-      );
+          }),
+        );
+      });
     });
-  });
+  }
   if (setup) await setup(page);
   await page.goto(origin);
   return page;

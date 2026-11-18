@@ -343,6 +343,10 @@ export const setActiveProviderDetail = async (providerDetail) => {
     !providerDetail.info.uuid ||
     !canProviderRequest(providerDetail.provider)
   ) {
+    if (!isProviderAvailableForDapp()) {
+      updateFormElements();
+      handleScrollTo();
+    }
     return;
   }
 
@@ -639,12 +643,6 @@ const closeProvider = () => {
 // Must be called after the active provider changes
 // Initializes active provider and adds any listeners
 const initializeProvider = async (provider, activation) => {
-  if (!isProviderAvailableForDapp()) {
-    updateFormElements();
-    handleScrollTo();
-    return;
-  }
-
   initializeContracts();
   updateFormElements();
 
