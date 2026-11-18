@@ -73,6 +73,16 @@ export function sponsorshipComponent(parentContainer) {
   const status = document.getElementById('sponsorshipStatus');
 
   let probeContract;
+  let chainId = globalContext.chainIdInt;
+  let probeRevision = 0;
+
+  const clearProbe = () => {
+    probeRevision += 1;
+    probeContract = undefined;
+    burnGasButton.disabled = true;
+    contractAddress.textContent = 'Not deployed';
+    status.textContent = 'Not clicked';
+  };
 
   document.addEventListener('globalConnectionChange', (event) => {
     if (event.detail.connected) {
@@ -82,19 +92,19 @@ export function sponsorshipComponent(parentContainer) {
 
   document.addEventListener('disableAndClear', () => {
     deployButton.disabled = true;
-    burnGasButton.disabled = true;
-    probeContract = undefined;
-    contractAddress.innerHTML = 'Not deployed';
+    clearProbe();
   });
 
-  document.addEventListener('newChainIdInt', () => {
-    if (!probeContract) {
+  document.addEventListener('newChainIdInt', ({ detail }) => {
+    if (chainId === detail.chainIdInt) {
       return;
     }
-    probeContract = undefined;
-    burnGasButton.disabled = true;
-    contractAddress.innerHTML = 'Not deployed';
-    status.innerHTML = 'Network changed. Deploy the gas burner again.';
+    const wasOnNetwork = chainId !== undefined;
+    chainId = detail.chainIdInt;
+    clearProbe();
+    if (wasOnNetwork && chainId !== undefined) {
+      status.textContent = 'Network changed. Deploy the gas burner again.';
+    }
   });
 
   const readIterations = () => {
@@ -112,7 +122,9 @@ export function sponsorshipComponent(parentContainer) {
   };
 
   deployButton.onclick = async () => {
-    status.innerHTML = 'Deploying';
+    probeRevision += 1;
+    const revision = probeRevision;
+    status.textContent = 'Deploying';
     burnGasButton.disabled = true;
     try {
       const factory = new ethers.ContractFactory(
@@ -121,22 +133,31 @@ export function sponsorshipComponent(parentContainer) {
         globalContext.ethersProvider.getSigner(),
       );
       const deployed = await factory.deploy();
+      if (revision !== probeRevision) {
+        return;
+      }
       await deployed.deployTransaction.wait();
+      if (revision !== probeRevision) {
+        return;
+      }
       if (!deployed.address) {
-        status.innerHTML = 'Deployment failed';
+        status.textContent = 'Deployment failed';
         burnGasButton.disabled = !probeContract;
         return;
       }
 
       probeContract = deployed;
       burnGasButton.disabled = false;
-      contractAddress.innerHTML = deployed.address;
-      status.innerHTML = 'Deployed';
+      contractAddress.textContent = deployed.address;
+      status.textContent = 'Deployed';
       console.log(
         `Sponsorship probe mined at ${deployed.address} tx ${deployed.deployTransaction.hash}`,
       );
     } catch (error) {
-      status.innerHTML = error.message || 'Deployment failed';
+      if (revision !== probeRevision) {
+        return;
+      }
+      status.textContent = error.message || 'Deployment failed';
       burnGasButton.disabled = !probeContract;
       console.log('error', error);
       throw error;
@@ -144,6 +165,7 @@ export function sponsorshipComponent(parentContainer) {
   };
 
   burnGasButton.onclick = async () => {
+    const revision = probeRevision;
     try {
       if (!probeContract) {
         throw new Error('Deploy the gas burner first.');
@@ -161,10 +183,16 @@ export function sponsorshipComponent(parentContainer) {
           },
         ],
       });
+      if (revision !== probeRevision) {
+        return;
+      }
       status.textContent = `Submitted ${txHash}. Check gasUsed on the explorer after confirmation.`;
       console.log('burn gas', txHash);
     } catch (error) {
-      status.innerHTML = error.message || 'Burn failed';
+      if (revision !== probeRevision) {
+        return;
+      }
+      status.textContent = error.message || 'Burn failed';
       console.log('error', error);
       throw error;
     }
