@@ -3,7 +3,7 @@
   "version": "9.10.0",
   "description": "A Syscoin-maintained test dapp for wallet integration testing.",
   "engines": {
-    "node": ">=24.22.1"
+    "node": ">=24.22.1 <25"
   },
   "scripts": {
     "setup": "yarn install && yarn allow-scripts",

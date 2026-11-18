@@ -73,9 +73,9 @@ Use the wallet checkout's pinned toolchain and installed root and mobile depende
 
 ### Setup
 
-- Install [Node.js](https://nodejs.org) >=24.22.1
+- Install [Node.js](https://nodejs.org) 24.22.1 or newer in the 24.x series
   - If you are using [nvm](https://github.com/creationix/nvm#installation) (recommended), running `nvm use` will automatically choose the version from `.nvmrc`.
-  - Node.js 24.22.1 or later is required, including when installing the published package.
+  - The fork and Vercel preview use the same Node.js major version as CI.
 - Install [Yarn 1.22.22](https://classic.yarnpkg.com/en/docs/install)
 - Run `yarn setup` to install dependencies and run any required post-install scripts
   - **Warning:** Do not use the `yarn` / `yarn install` command directly. Use `yarn setup` instead. The normal install command will skip required post-install scripts, leaving your development environment in an invalid state.
