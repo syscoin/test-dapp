@@ -1,7 +1,6 @@
 import { createEVMClient } from '@metamask/connect-evm';
 import dappMetadata from './dapp-metadata';
-import globalContext, {
-  handleNewAccounts,
+import {
   handleNewProviderDetail,
   removeProviderDetail,
   setActiveProviderDetail,
@@ -95,7 +94,7 @@ export async function handleConnectEvm(
       return;
     }
 
-    const { accounts } = await client.connect({
+    await client.connect({
       chainIds: CONNECT_EVM_CHAIN_IDS,
     });
     const provider = client.getProvider();
@@ -105,9 +104,6 @@ export async function handleConnectEvm(
     handleNewProviderDetail(providerDetail);
     updateConnectionState(true);
     setConnectedButtonState(button);
-    updateFormElements();
-    handleNewAccounts(accounts);
-    globalContext.connected = true;
   } catch (err) {
     console.error('Error connecting with MetaMask Connect EVM', err);
     if (isConnected) {

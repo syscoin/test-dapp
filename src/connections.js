@@ -1,7 +1,6 @@
 import dappMetadata, { WALLET_CONNECT_PROJECT_ID } from './dapp-metadata';
 import { createPaliWalletConnect } from './pali-walletconnect';
 import {
-  handleNewAccounts,
   handleNewProviderDetail,
   removeProviderDetail,
   setActiveProviderDetail,
@@ -57,7 +56,7 @@ export async function handleSdkConnect(name, button, isConnected) {
   } else {
     await sdk.connect();
     const provider = sdk.getProvider();
-    const uuid = sdk.getChannelId();
+    const uuid = sdk.getChannelId() || name;
     const providerDetail = _setProviderDetail(provider, name, uuid);
     await setActiveProviderDetail(providerDetail);
     handleNewProviderDetail(providerDetail);
@@ -65,17 +64,6 @@ export async function handleSdkConnect(name, button, isConnected) {
     button.innerText = 'Sdk Connect - Disconnect';
     button.classList.remove('btn-primary');
     button.classList.add('btn-danger');
-
-    updateFormElements();
-
-    try {
-      const newAccounts = await provider.request({
-        method: 'eth_accounts',
-      });
-      handleNewAccounts(newAccounts);
-    } catch (err) {
-      console.error('Error on init when getting accounts', err);
-    }
   }
 }
 
