@@ -248,6 +248,7 @@ ensResolutionComponent(resolutionsSection);
 
 const providerDetails = [];
 let providerActivation = 0;
+let networkRevision = 0;
 let scrollToHandled = false;
 
 const isPaliProviderInfo = (info = {}) => {
@@ -552,24 +553,42 @@ function handleNewNetwork(networkId) {
   document.dispatchEvent(changeEvent);
 }
 
-const getNetworkAndChainId = async (provider, activation) => {
+const refreshNetworkId = async (provider, chainId, activation, revision) => {
+  let networkId;
   try {
-    const chainId = await provider.request({
-      method: 'eth_chainId',
-    });
-    if (activation !== providerActivation) {
+    networkId = await provider.request({ method: 'net_version' });
+  } catch {
+    networkId = String(parseInt(chainId, 16));
+  }
+  if (activation === providerActivation && revision === networkRevision) {
+    handleNewNetwork(networkId);
+  }
+};
+
+const handleProviderChainChanged = (chainId) => {
+  const { provider } = globalContext;
+  const activation = providerActivation;
+  networkRevision += 1;
+  const revision = networkRevision;
+  handleNewChain(chainId);
+  refreshNetworkId(provider, chainId, activation, revision);
+};
+
+const handleProviderNetworkChanged = (networkId) => {
+  networkRevision += 1;
+  handleNewNetwork(networkId);
+};
+
+const getNetworkAndChainId = async (provider, activation) => {
+  const revision = networkRevision;
+  try {
+    const chainId = await provider.request({ method: 'eth_chainId' });
+    if (activation !== providerActivation || revision !== networkRevision) {
       return;
     }
     handleNewChain(chainId);
-
-    let networkId;
-    try {
-      networkId = await provider.request({ method: 'net_version' });
-    } catch {
-      networkId = String(parseInt(chainId, 16));
-    }
+    await refreshNetworkId(provider, chainId, activation, revision);
     if (activation === providerActivation) {
-      handleNewNetwork(networkId);
       handleEIP1559Support();
     }
   } catch (err) {
@@ -621,13 +640,21 @@ const closeProvider = () => {
   clearActiveProviderState();
   globalContext.connected = false;
 
-  removeProviderListener(previousProvider, 'chainChanged', handleNewChain);
+  removeProviderListener(
+    previousProvider,
+    'chainChanged',
+    handleProviderChainChanged,
+  );
   removeProviderListener(
     previousProvider,
     'chainChanged',
     handleEIP1559Support,
   );
-  removeProviderListener(previousProvider, 'networkChanged', handleNewNetwork);
+  removeProviderListener(
+    previousProvider,
+    'networkChanged',
+    handleProviderNetworkChanged,
+  );
   removeProviderListener(
     previousProvider,
     'accountsChanged',
@@ -649,15 +676,17 @@ const initializeProvider = async (provider, activation) => {
   if ('autoRefreshOnNetworkChange' in provider) {
     provider.autoRefreshOnNetworkChange = false;
   }
+  if (canSubscribeToProviderEvents(provider)) {
+    provider.on('chainChanged', handleProviderChainChanged);
+    provider.on('chainChanged', handleEIP1559Support);
+  }
   await getNetworkAndChainId(provider, activation);
   if (activation !== providerActivation) {
     return;
   }
 
   if (canSubscribeToProviderEvents(provider)) {
-    provider.on('chainChanged', handleNewChain);
-    provider.on('chainChanged', handleEIP1559Support);
-    provider.on('networkChanged', handleNewNetwork);
+    provider.on('networkChanged', handleProviderNetworkChanged);
     provider.on('accountsChanged', handleNewAccounts);
     provider.on('accountsChanged', handleEIP1559Support);
   }
