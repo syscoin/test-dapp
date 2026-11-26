@@ -2,6 +2,17 @@
 import { recoverPersonalSignature } from '@metamask/eth-sig-util';
 import globalContext from '../..';
 
+function isConnectedSigner(recovered, connected) {
+  const ethereumAddress = /^0x[0-9a-f]{40}$/iu;
+  return (
+    typeof recovered === 'string' &&
+    typeof connected === 'string' &&
+    ethereumAddress.test(recovered) &&
+    ethereumAddress.test(connected) &&
+    recovered.toLowerCase() === connected.toLowerCase()
+  );
+}
+
 export function personalSignComponent(parentContainer) {
   parentContainer.insertAdjacentHTML(
     'beforeend',
@@ -22,6 +33,7 @@ export function personalSignComponent(parentContainer) {
 
           <p class="info-text alert alert-warning">
             Result: <span id="personalSignResult"></span>
+            <span id="personalSignError" role="status"></span>
           </p>
 
           <button
@@ -47,6 +59,7 @@ export function personalSignComponent(parentContainer) {
 
   const personalSign = document.getElementById('personalSign');
   const personalSignResult = document.getElementById('personalSignResult');
+  const personalSignError = document.getElementById('personalSignError');
   const personalSignVerify = document.getElementById('personalSignVerify');
   const personalSignVerifySigUtilResult = document.getElementById(
     'personalSignVerifySigUtilResult',
@@ -54,6 +67,16 @@ export function personalSignComponent(parentContainer) {
   const personalSignVerifyECRecoverResult = document.getElementById(
     'personalSignVerifyECRecoverResult',
   );
+
+  let signingRevision = 0;
+  const clearResults = () => {
+    signingRevision += 1;
+    personalSignResult.textContent = '';
+    personalSignError.textContent = '';
+    personalSignVerifySigUtilResult.textContent = '';
+    personalSignVerifyECRecoverResult.textContent = '';
+    personalSignVerify.disabled = true;
+  };
 
   document.addEventListener('globalConnectionChange', function (e) {
     if (e.detail.connected) {
@@ -64,13 +87,15 @@ export function personalSignComponent(parentContainer) {
 
   document.addEventListener('disableAndClear', function () {
     personalSign.disabled = true;
-    personalSignVerify.disabled = true;
+    clearResults();
   });
 
   /**
    * Personal Sign
    */
   personalSign.onclick = async () => {
+    clearResults();
+    const revision = signingRevision;
     const exampleMessage = 'Example `personal_sign` message';
     try {
       const from = globalContext.accounts[0];
@@ -79,11 +104,16 @@ export function personalSignComponent(parentContainer) {
         method: 'personal_sign',
         params: [msg, from, 'Example password'],
       });
-      personalSignResult.innerHTML = sign;
+      if (revision !== signingRevision) {
+        return;
+      }
+      personalSignResult.textContent = sign;
       personalSignVerify.disabled = false;
     } catch (err) {
       console.error(err);
-      personalSign.innerHTML = `Error: ${err.message}`;
+      if (revision === signingRevision) {
+        personalSignError.textContent = `Error: ${err.message}`;
+      }
     }
   };
 
@@ -91,40 +121,47 @@ export function personalSignComponent(parentContainer) {
    * Personal Sign Verify
    */
   personalSignVerify.onclick = async () => {
+    const revision = signingRevision;
     const exampleMessage = 'Example `personal_sign` message';
+    const from = globalContext.accounts[0];
+    const msg = `0x${Buffer.from(exampleMessage, 'utf8').toString('hex')}`;
+    const sign = personalSignResult.textContent;
+    const mismatch = 'Signer does not match the connected account.';
+    personalSignVerifySigUtilResult.textContent = '';
+    personalSignVerifyECRecoverResult.textContent = '';
     try {
-      const from = globalContext.accounts[0];
-      const msg = `0x${Buffer.from(exampleMessage, 'utf8').toString('hex')}`;
-      const sign = personalSignResult.innerHTML;
       const recoveredAddr = recoverPersonalSignature({
         data: msg,
         signature: sign,
       });
-      if (recoveredAddr === from) {
-        console.log(`SigUtil Successfully verified signer as ${recoveredAddr}`);
-        personalSignVerifySigUtilResult.innerHTML = recoveredAddr;
-      } else {
-        console.log(
-          `SigUtil Failed to verify signer when comparing ${recoveredAddr} to ${from}`,
-        );
-        console.log(`Failed comparing ${recoveredAddr} to ${from}`);
-      }
+      personalSignVerifySigUtilResult.textContent = isConnectedSigner(
+        recoveredAddr,
+        from,
+      )
+        ? recoveredAddr
+        : mismatch;
+    } catch (err) {
+      personalSignVerifySigUtilResult.textContent = `Error: ${err.message}`;
+    }
+
+    try {
       const ecRecoverAddr = await globalContext.provider.request({
         method: 'personal_ecRecover',
         params: [msg, sign],
       });
-      if (ecRecoverAddr === from) {
-        console.log(`Successfully ecRecovered signer as ${ecRecoverAddr}`);
-        personalSignVerifyECRecoverResult.innerHTML = ecRecoverAddr;
-      } else {
-        console.log(
-          `Failed to verify signer when comparing ${ecRecoverAddr} to ${from}`,
-        );
+      if (revision !== signingRevision) {
+        return;
       }
+      personalSignVerifyECRecoverResult.textContent = isConnectedSigner(
+        ecRecoverAddr,
+        from,
+      )
+        ? ecRecoverAddr
+        : mismatch;
     } catch (err) {
-      console.error(err);
-      personalSignVerifySigUtilResult.innerHTML = `Error: ${err.message}`;
-      personalSignVerifyECRecoverResult.innerHTML = `Error: ${err.message}`;
+      if (revision === signingRevision) {
+        personalSignVerifyECRecoverResult.textContent = `Error: ${err.message}`;
+      }
     }
   };
 }
